@@ -1,95 +1,39 @@
-const API_BASE = '/api'
+import { request, getToken } from '@/utils'
 
-// 获取token
-function getToken() {
-  return localStorage.getItem('token')
-}
+const API_BASE = import.meta.env.VITE_BASE_API || '/api'
 
-// 通用请求封装
-async function request(url, options = {}) {
-  const token = getToken()
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
+function parseErrorDetail(detail) {
+  if (!detail) return null
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg || item.message || String(item)).join('; ')
   }
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
-  const res = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-  })
-
-  if (res.status === 401) {
-    localStorage.removeItem('token')
-    window.location.href = '/login'
-    throw new Error('登录已过期')
-  }
-
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ detail: '请求失败' }))
-    throw new Error(error.detail || '请求失败')
-  }
-
-  return res.json()
+  return String(detail)
 }
 
-// ========== 认证 ==========
+export default {
+  login: (data) => request.post('/auth/login', data, { noNeedToken: true }),
+  register: (data) => request.post('/auth/register', data, { noNeedToken: true }),
+  getUserInfo: () => request.get('/auth/me'),
+  logout: () => request.post('/auth/logout'),
 
-export async function login(username, password) {
-  return request('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username, password }),
-  })
-}
+  fetchConversations: () => request.get('/conversations/'),
+  fetchConversation: (id) => request.get(`/conversations/${id}`),
+  deleteConversation: (id) => request.delete(`/conversations/${id}`),
 
-export async function register(username, email, password) {
-  return request('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ username, email, password }),
-  })
-}
+  fetchKnowledgeBases: (search = '') =>
+    request.get(search ? `/knowledge-bases/?search=${encodeURIComponent(search)}` : '/knowledge-bases/'),
+  createKnowledgeBase: (data) => request.post('/knowledge-bases/', data),
+  deleteKnowledgeBase: (id) => request.delete(`/knowledge-bases/${id}`),
+  fetchDocuments: (kbId) => request.get(`/knowledge-bases/${kbId}/documents`),
+  deleteDocument: (kbId, docId) => request.delete(`/knowledge-bases/${kbId}/documents/${docId}`),
+  fetchChunks: (kbId, docId) => request.get(`/knowledge-bases/${kbId}/chunks?doc_id=${docId}`),
 
-export async function getMe() {
-  return request('/auth/me')
-}
-
-// ========== 对话历史 ==========
-
-export async function fetchConversations() {
-  return request('/conversations/')
-}
-
-export async function fetchConversation(id) {
-  return request(`/conversations/${id}`)
-}
-
-export async function deleteConversation(id) {
-  return request(`/conversations/${id}`, { method: 'DELETE' })
-}
-
-// ========== 知识库 ==========
-
-export async function fetchKnowledgeBases(search = '') {
-  const url = search ? `/knowledge-bases/?search=${encodeURIComponent(search)}` : '/knowledge-bases/'
-  return request(url)
-}
-
-export async function createKnowledgeBase(data) {
-  return request('/knowledge-bases/', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
-}
-
-export async function deleteKnowledgeBase(id) {
-  return request(`/knowledge-bases/${id}`, { method: 'DELETE' })
-}
-
-export async function fetchDocuments(kbId) {
-  return request(`/knowledge-bases/${kbId}/documents`)
+  fetchModelConfigs: () => request.get('/model-configs/'),
+  createModelConfig: (data) => request.post('/model-configs/', data),
+  updateModelConfig: (id, data) => request.put(`/model-configs/${id}`, data),
+  deleteModelConfig: (id) => request.delete(`/model-configs/${id}`),
+  setDefaultModelConfig: (id) => request.post(`/model-configs/${id}/default`),
 }
 
 export async function uploadDocument(kbId, file) {
@@ -99,53 +43,17 @@ export async function uploadDocument(kbId, file) {
 
   const res = await fetch(`${API_BASE}/knowledge-bases/${kbId}/documents`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   })
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ detail: '上传失败' }))
-    throw new Error(error.detail || '上传失败')
+    const error = await res.json().catch(() => ({}))
+    throw new Error(parseErrorDetail(error.detail) || '上传失败')
   }
 
   return res.json()
 }
-
-export async function deleteDocument(kbId, docId) {
-  return request(`/knowledge-bases/${kbId}/documents/${docId}`, { method: 'DELETE' })
-}
-
-export async function fetchChunks(kbId, docId) {
-  return request(`/knowledge-bases/${kbId}/chunks?doc_id=${docId}`)
-}
-
-// ========== 模型配置 ==========
-
-export async function fetchModelConfigs() {
-  return request('/model-configs/')
-}
-
-export async function createModelConfig(data) {
-  return request('/model-configs/', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
-}
-
-export async function updateModelConfig(id, data) {
-  return request(`/model-configs/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  })
-}
-
-export async function deleteModelConfig(id) {
-  return request(`/model-configs/${id}`, { method: 'DELETE' })
-}
-
-// ========== 聊天 ==========
 
 export function chatStream(
   question,
@@ -161,7 +69,7 @@ export function chatStream(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       question,
@@ -173,8 +81,8 @@ export function chatStream(
   })
     .then(async (response) => {
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: '请求失败' }))
-        throw new Error(error.detail || '请求失败')
+        const error = await response.json().catch(() => ({}))
+        throw new Error(parseErrorDetail(error.detail) || '请求失败')
       }
 
       const reader = response.body.getReader()
@@ -203,7 +111,7 @@ export function chatStream(
               else if (eventType === 'done' && onDone) onDone(data.content)
               else if (eventType === 'error' && onError) onError(new Error(data.message))
             } catch {
-              // 忽略解析错误
+              // ignore parse errors
             }
           }
         }
