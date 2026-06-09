@@ -9,6 +9,7 @@
 """Embedding API封装 - OpenAI 兼容格式（硅基流动等）"""
 
 from typing import List
+
 import requests
 
 from backend.configure import PROJECT_CONFIG
@@ -46,7 +47,7 @@ def get_embedding(texts: List[str], model: str = None) -> List[List[float]]:
     }
 
     for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
+        batch = texts[i: i + batch_size]
 
         resp = requests.post(
             f"{PROJECT_CONFIG.EMBEDDING_BASE_URL}/embeddings",
@@ -73,7 +74,3 @@ def get_single_embedding(text: str, model: str = None) -> List[float]:
     """获取单条文本的向量"""
     embeddings = get_embedding([text], model)
     return embeddings[0]
-
-
-# 兼容旧代码的别名
-get_qwen_embedding = get_embedding

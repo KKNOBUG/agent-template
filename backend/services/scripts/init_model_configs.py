@@ -6,7 +6,7 @@
 @Module  : init_admin.py
 @DateTime: 2025/4/28 18:07
 """
-"""初始化 / 迁移 DeepSeek 模型配置"""
+"""初始化 / 迁移 DeepSeek 模型配置（直接运行脚本时使用）"""
 
 import asyncio
 
@@ -14,8 +14,8 @@ import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 
 from tortoise import Tortoise
 
-from backend.configure import TORTOISE_ORM
-from backend.applications.rag_user.models.rag_user_model import User
+from backend.configure import PROJECT_CONFIG
+from backend.applications.rag_user.models.rag_user_model import RagUser
 from backend.applications.model_config.models.model_config_model import ModelConfig
 
 DEEPSEEK_CONFIGS = [
@@ -38,10 +38,24 @@ DEEPSEEK_CONFIGS = [
 ]
 
 
-async def init_model_configs():
-    await Tortoise.init(config=TORTOISE_ORM)
+def build_tortoise_config():
+    return {
+        "connections": PROJECT_CONFIG.DATABASE_CONNECTIONS,
+        "apps": {
+            "models": {
+                "models": PROJECT_CONFIG.APPLICATIONS_MODELS,
+                "default_connection": "default"
+            }
+        },
+        "use_tz": False,
+        "timezone": "Asia/Shanghai",
+    }
 
-    admin = await User.get_or_none(username="admin")
+
+async def init_model_configs():
+    await Tortoise.init(config=build_tortoise_config())
+
+    admin = await RagUser.get_or_none(username="admin")
     if not admin:
         print("❌ Admin 账号不存在，请先运行 init_admin.py")
         await Tortoise.close_connections()

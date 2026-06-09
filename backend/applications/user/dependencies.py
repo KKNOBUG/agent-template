@@ -19,7 +19,7 @@ User 模块依赖注入工厂。
     async def create(data: UserCreate, crud: UserCrud = Depends(get_user_crud)):
         return await crud.create(data)
 """
-from applications.user.services.user_crud import UserCrud
+from backend.applications.user.services.user_crud import UserCrud
 
 
 async def get_user_crud() -> UserCrud:

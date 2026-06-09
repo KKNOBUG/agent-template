@@ -6,7 +6,7 @@
 @Module  : init_data
 @DateTime: 2026/6/7 12:39
 """
-from applications.user.models.user_model import User
+from backend.applications.user.models.user_model import User
 
 
 async def init_database_user():

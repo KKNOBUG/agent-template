@@ -16,7 +16,7 @@ from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
     KnowledgeBaseOut,
     DocumentChunkUpdate,
 )
-from backend.applications.base.rag.embeddings import get_qwen_embedding
+from backend.applications.base.rag.embeddings import get_embedding
 from backend.applications.base.rag.chroma_store import chroma_store
 
 
@@ -146,7 +146,7 @@ class KnowledgeBaseService:
 
             await KnowledgeBaseRepository.bulk_create_chunks(chunk_models)
 
-            embeddings = get_qwen_embedding([c.content for c in chunk_models])
+            embeddings = get_embedding([c.content for c in chunk_models])
             chroma_chunks = [
                 {
                     "doc_id": doc.id,
@@ -232,7 +232,7 @@ class KnowledgeBaseService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="知识块不存在")
 
         chunk.content = data.content
-        embedding = get_qwen_embedding([data.content])[0]
+        embedding = get_embedding([data.content])[0]
         if chunk.chroma_id:
             chroma_store.delete_by_vector_id(chunk.chroma_id)
         chroma_ids = chroma_store.upsert_chunks(

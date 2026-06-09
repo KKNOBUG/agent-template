@@ -6,7 +6,7 @@
 @Module  : init_admin.py
 @DateTime: 2025/4/28 18:07
 """
-"""初始化管理员账号"""
+"""初始化管理员账号（直接运行脚本时使用）"""
 
 import asyncio
 
@@ -14,15 +14,29 @@ import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 
 from tortoise import Tortoise
 
-from backend.configure import TORTOISE_ORM
+from backend.configure import PROJECT_CONFIG
 from backend.services.rag_security import get_password_hash
-from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.rag_user.models.rag_user_model import RagUser
+
+
+def build_tortoise_config():
+    return {
+        "connections": PROJECT_CONFIG.DATABASE_CONNECTIONS,
+        "apps": {
+            "models": {
+                "models": PROJECT_CONFIG.APPLICATIONS_MODELS,
+                "default_connection": "default"
+            }
+        },
+        "use_tz": False,
+        "timezone": "Asia/Shanghai",
+    }
 
 
 async def init_admin():
-    await Tortoise.init(config=TORTOISE_ORM)
+    await Tortoise.init(config=build_tortoise_config())
 
-    existing = await User.get_or_none(username="admin")
+    existing = await RagUser.get_or_none(username="admin")
     if existing:
         print("管理员账号已存在，更新密码...")
         existing.hashed_password = get_password_hash("admin")
@@ -31,7 +45,7 @@ async def init_admin():
         await existing.save()
     else:
         print("创建管理员账号...")
-        await User.create(
+        await RagUser.create(
             username="admin",
             email="admin@example.com",
             hashed_password=get_password_hash("admin"),

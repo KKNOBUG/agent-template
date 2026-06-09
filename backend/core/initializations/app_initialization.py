@@ -184,9 +184,9 @@ def register_routers(app: FastAPI) -> None:
     redoc_modules["redoc_favicon_url"] = "/static/redoc/favicon.png"
 
     # 导入路由蓝图
-    from applications.base.views import base_public, base_secure, router_secure, audit_secure
-    from applications.user.views import user_public_router, user_secure_router
-    from applications.example.views import example_category_router, example_product_router
+    from backend.applications.base.views import base_public, base_secure, router_secure, audit_secure
+    from backend.applications.user.views import user_public_router, user_secure_router
+    from backend.applications.example.views import example_category_router, example_product_router
 
     # 挂在路由蓝图
     app.include_router(router=base_public, prefix="/base", tags=["基础服务"])
@@ -199,10 +199,10 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=example_product_router, prefix="/example", tags=["示例服务-商品模型"], dependencies=[DependAuth])
 
     # KeenRobot RAG 业务 API（兼容前端 /api/* 路径）
-    from applications.rag_user.views import auth_router
-    from applications.conversation.views import chat_router, history_router
-    from applications.knowledge_base.views import kb_router
-    from applications.model_config.views import model_router
+    from backend.applications.rag_user.views import auth_router
+    from backend.applications.conversation.views import chat_router, history_router
+    from backend.applications.knowledge_base.views import kb_router
+    from backend.applications.model_config.views import model_router
 
     app.include_router(router=auth_router, prefix="/api/auth", tags=["RAG-认证"])
     app.include_router(router=chat_router, prefix="/api/chat", tags=["RAG-对话"])

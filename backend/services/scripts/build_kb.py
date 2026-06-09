@@ -18,7 +18,7 @@ import _bootstrap  # noqa: F401
 
 from backend.configure import PROJECT_CONFIG
 from backend.applications.base.rag.chroma_store import chroma_store
-from backend.applications.base.rag.embeddings import get_qwen_embedding
+from backend.applications.base.rag.embeddings import get_embedding
 from backend.applications.base.rag.loader import load_all_pdfs, split_documents
 
 
@@ -42,7 +42,7 @@ def main():
     print(f"\n[3/3] 向量化并写入 {PROJECT_CONFIG.chroma_path} ...")
     start = time.time()
     texts = [c.page_content for c in chunks]
-    embeddings = get_qwen_embedding(texts)
+    embeddings = get_embedding(texts)
     offline_kb_id = "offline"
     chroma_store.upsert_chunks(
         offline_kb_id,
