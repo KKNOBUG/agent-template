@@ -19,7 +19,6 @@ from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
-from tortoise import Tortoise
 from tortoise.contrib.fastapi import register_tortoise
 from tortoise.exceptions import DoesNotExist
 
@@ -49,11 +48,6 @@ async def register_database(app: FastAPI) -> None:
         "use_tz": False,
         "timezone": "Asia/Shanghai",
     }
-
-    # 先初始化 Tortoise，确保模型能正确绑定数据库连接
-    if not Tortoise._inited:
-        await Tortoise.init(config=config)
-
     register_tortoise(
         app=app,
         config=config,

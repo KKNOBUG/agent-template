@@ -148,7 +148,7 @@ class ProjectConfig(BaseSettings):
     ]
 
     # 应用注册
-    APPLICATIONS_MODULE: str = "applications"
+    APPLICATIONS_MODULE: str = "backend.applications"
     APPLICATIONS_INSTALLED: List[str] = FileUtils.get_all_dirs(
         abspath=APPLICATIONS_DIR,
         return_full_path=False,

@@ -27,4 +27,6 @@ dependencies = [
     "uvloop==0.21.0",
     "email-validator==2.2.0",
     "aiomysql==0.2.0",
+    "argon2-cffi==23.1.0",
+    "argon2-cffi-bindings==21.2.0",
 ]
