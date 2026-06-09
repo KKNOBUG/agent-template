@@ -170,7 +170,6 @@ class ProjectConfig(BaseSettings):
                 exclude_endswith="__.py"
             )
         ]
-        models.append("aerich.models")
         return models
 
     # 常用的用户代理字符串列表
@@ -299,16 +298,7 @@ class ProjectConfig(BaseSettings):
             db=db,
         )
 
-    # Aerich：是否在应用启动时执行 init_db / migrate / upgrade 指令
-    # - 生产(Linux 且 SERVER_DEBUG=False)：始终执行迁移（不提供关闭选项）
-    # - 开发(SERVER_DEBUG=True)：默认不迁移；需要时由开发者手动把 DATABASE_AUTO_MIGRATION 改为 True
-    @property
-    def aerich_should_run_on_startup(self) -> bool:
-        if (not self.SERVER_DEBUG) and (self.SERVER_SYSTEM == "Linux"):
-            return True
-        if self.SERVER_DEBUG and self.DATABASE_AUTO_MIGRATION:
-            return True
-        return False
+
 
 
 @lru_cache(maxsize=1)

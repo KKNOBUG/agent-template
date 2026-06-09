@@ -4,9 +4,17 @@
 @Email   : 807440781@qq.com
 @Project : KeenRobot
 @Module  : __init__.py
-@DateTime: 2025/4/28 18:07
+@DateTime: 2026/6/9
 """
-from backend.applications.conversation.views.chat_view import router as chat_router
-from backend.applications.conversation.views.history_view import router as history_router
+from fastapi import APIRouter
+
+from .chat_view import chat
+from .history_view import history
+
+chat_router = APIRouter()
+history_router = APIRouter()
+
+chat_router.include_router(chat)
+history_router.include_router(history)
 
 __all__ = ["chat_router", "history_router"]

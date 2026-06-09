@@ -4,8 +4,13 @@
 @Email   : 807440781@qq.com
 @Project : KeenRobot
 @Module  : __init__.py
-@DateTime: 2025/4/28 18:07
+@DateTime: 2026/6/9
 """
-from backend.applications.knowledge_base.views.knowledge_base_view import router as kb_router
+from fastapi import APIRouter
+
+from .knowledge_base_view import knowledge_base
+
+kb_router = APIRouter()
+kb_router.include_router(knowledge_base)
 
 __all__ = ["kb_router"]

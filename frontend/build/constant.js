@@ -1,6 +1,6 @@
 export const OUTPUT_DIR = 'dist'
 
-export const BACKEND_URL = 'http://localhost:8000'
+export const BACKEND_URL = 'http://172.20.10.2:8519'
 
 export const PROXY_CONFIG = {
   '/api': {

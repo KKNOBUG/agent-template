@@ -90,7 +90,7 @@ async def auth_middleware(request: Request, call_next):
 
     # /api/* 路由使用 RAG Bearer 鉴权
     if request_path.startswith("/api"):
-        from services.rag_auth import get_current_user
+        from backend.services.rag_auth import get_current_user
         from fastapi.security import HTTPAuthorizationCredentials
         from fastapi import HTTPException
 

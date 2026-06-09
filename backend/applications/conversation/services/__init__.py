@@ -4,10 +4,11 @@
 @Email   : 807440781@qq.com
 @Project : KeenRobot
 @Module  : __init__.py
-@DateTime: 2025/4/28 18:07
+@DateTime: 2026/6/9
 """
-from backend.applications.conversation.services.chat_service import ChatService
-from backend.applications.conversation.services.conversation_service import ConversationService
-from backend.applications.conversation.services.conversation_repo import ConversationRepository
+from backend.applications.conversation.services.conversation_crud import (
+    ConversationCrud,
+    MessageCrud,
+)
 
-__all__ = ["ChatService", "ConversationService", "ConversationRepository"]
+__all__ = ["ConversationCrud", "MessageCrud"]

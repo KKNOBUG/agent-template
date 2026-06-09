@@ -6,7 +6,6 @@
 @Module  : __init__.py
 @DateTime: 2025/4/28 18:07
 """
-from backend.applications.model_config.services.model_config_service import ModelConfigService
-from backend.applications.model_config.services.model_config_repo import ModelConfigRepository
+from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
 
-__all__ = ["ModelConfigService", "ModelConfigRepository"]
+__all__ = ["ModelConfigCrud"]

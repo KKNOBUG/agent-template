@@ -86,3 +86,10 @@ if __name__ == '__main__':
         log_config=None,
         log_level=None,
     )
+
+    # tortoise init                # 初始化迁移目录
+    # tortoise makemigrations      # 生成迁移（自动检测变更）
+    # tortoise migrate              # 应用迁移（支持回滚）
+    # tortoise downgrade            # 回滚到指定版本
+    # tortoise history              # 查看迁移历史
+    # tortoise sqlmigrate           # 预览SQL（安全）

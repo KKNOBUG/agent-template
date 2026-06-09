@@ -4,8 +4,13 @@
 @Email   : 807440781@qq.com
 @Project : KeenRobot
 @Module  : __init__.py
-@DateTime: 2025/4/28 18:07
+@DateTime: 2026/6/9
 """
-from backend.applications.model_config.views.model_config_view import router as model_router
+from fastapi import APIRouter
+
+from .model_config_view import model_config
+
+model_router = APIRouter()
+model_router.include_router(model_config)
 
 __all__ = ["model_router"]

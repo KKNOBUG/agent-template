@@ -7,7 +7,6 @@
 @DateTime: 2026/6/8
 """
 from backend.applications.model_config.models.model_config_model import ModelConfig
-from backend.applications.model_config.services import ModelConfigService
 from backend.applications.user.models.user_model import User
 from backend.applications.user.services.user_crud import UserCrud
 from backend.configure import LOGGER

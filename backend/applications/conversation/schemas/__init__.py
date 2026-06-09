@@ -4,13 +4,30 @@
 @Email   : 807440781@qq.com
 @Project : KeenRobot
 @Module  : __init__.py
-@DateTime: 2025/4/28 18:07
+@DateTime: 2026/6/9
 """
 from backend.applications.conversation.schemas.conversation_schema import (
     ChatRequest,
-    MessageOut,
+    ConversationCreate,
+    ConversationUpdate,
+    ConversationSelect,
     ConversationOut,
     ConversationDetail,
+    MessageCreate,
+    MessageUpdate,
+    MessageSelect,
+    MessageOut,
 )
 
-__all__ = ["ChatRequest", "MessageOut", "ConversationOut", "ConversationDetail"]
+__all__ = [
+    "ChatRequest",
+    "ConversationCreate",
+    "ConversationUpdate",
+    "ConversationSelect",
+    "ConversationOut",
+    "ConversationDetail",
+    "MessageCreate",
+    "MessageUpdate",
+    "MessageSelect",
+    "MessageOut",
+]

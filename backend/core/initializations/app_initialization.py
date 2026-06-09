@@ -7,20 +7,21 @@
 @DateTime: 2025/1/17 21:55
 """
 import os
-import shutil
 import sys
 import traceback
 from typing import Dict, Any
 
 import tortoise.exceptions
-from aerich import Command
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
+from tortoise import Tortoise
+from tortoise.connection import get_connection
 from tortoise.contrib.fastapi import register_tortoise
 from tortoise.exceptions import DoesNotExist
+from tortoise.migrations.api import migrate as migrate_api
 
 from backend.configure import PROJECT_CONFIG, LOGGER
 from backend.core.exceptions.http_exceptions import (
@@ -56,50 +57,41 @@ async def register_database(app: FastAPI) -> None:
     )
 
     # 确保迁移目录存在
-    if not os.path.exists(PROJECT_CONFIG.MIGRATION_DIR):
-        os.makedirs(PROJECT_CONFIG.MIGRATION_DIR)
+    migration_path = os.path.join(PROJECT_CONFIG.MIGRATION_DIR, "models")
+    if not os.path.exists(migration_path):
+        os.makedirs(migration_path)
+        # 创建 __init__.py
+        open(os.path.join(migration_path, "__init__.py"), "a").close()
 
-    # 初始化Aerich命令
-    command = Command(
-        app='models',
-        tortoise_config=config,
-        location=PROJECT_CONFIG.MIGRATION_DIR,
-    )
+    # 初始化 Tortoise（register_tortoise 已经初始化，但我们需要确保连接可用）
+    if not Tortoise._inited:
+        await Tortoise.init(config=config)
 
-    # 初始化数据库和迁移
-    try:
-        # 当 safe 设置为 True 时，如果数据库中已经存在 Aerich 所需的迁移表（通常是 aerich 表），init_db 方法不会尝试去重新创建这些表，避免因为表已存在而抛出错误。
-        # 当 safe 设置为 False 时，如果数据库中已经存在 Aerich 所需的迁移表，init_db 方法会尝试重新创建这些表，这可能会导致现有表被删除并重新创建，从而丢失表中的数据。
-        await command.init_db(safe=True)
-    except FileExistsError:
-        pass
-
-    await command.init()
-
-    if not PROJECT_CONFIG.aerich_should_run_on_startup:
+    if not PROJECT_CONFIG.DATABASE_AUTO_MIGRATION:
         LOGGER.warning(
-            "跳过 Aerich 数据迁移指令: \n"
+            "跳过数据库迁移: \n"
             f"操作系统: {PROJECT_CONFIG.SERVER_SYSTEM}, \n"
             f"调试开关: {PROJECT_CONFIG.SERVER_DEBUG}, \n"
             f"迁移开关: {PROJECT_CONFIG.DATABASE_AUTO_MIGRATION}, \n"
-            f"生产环境(Linux操作系统)始终执行迁移指令, 不提供关闭选项; "
-            f"开发环境(Windows操作系统)仅当显示打开[DATABASE_AUTO_MIGRATION]时执行迁移指令。"
+            f"生产环境始终执行迁移, 开发环境可关闭。"
         )
         return
 
-    # 生成迁移文件
+    # 执行迁移
     try:
-        await command.migrate(name="auto_migrate")
-    except AttributeError as e:
-        LOGGER.error(f"无法从数据库中检索模型历史记录, 请检查[migration]与[aerich]表记录是否一致: {e}\n错误回溯: {traceback.format_exc()}")
-        if PROJECT_CONFIG.aerich_should_run_on_startup:
-            shutil.rmtree(PROJECT_CONFIG.MIGRATION_DIR)
-            await command.init_db(safe=True)
-        else:
-            raise RuntimeError("数据库迁移元数据与本地[migration]不一致, 无法进行迁移, 请手工修复或从备份恢复后再启动应用")
-
-    # 应用迁移
-    await command.upgrade(run_in_transaction=True)
+        LOGGER.info("执行数据库迁移...")
+        await migrate_api(config=config, app_labels=["models"])
+        LOGGER.info("数据库迁移完成")
+    except Exception as e:
+        LOGGER.error(f"迁移过程出错: {e}\n错误回溯: {traceback.format_exc()}")
+        # 如果迁移失败，尝试生成 schemas（首次启动或没有迁移文件时）
+        LOGGER.info("尝试生成数据库表结构...")
+        try:
+            await Tortoise.generate_schemas(safe=True)
+            LOGGER.info("数据库表结构生成完成")
+        except Exception as schema_error:
+            LOGGER.error(f"生成表结构失败: {schema_error}")
+            raise RuntimeError(f"数据库初始化失败: {e}")
 
 
 # 注册异常处理器

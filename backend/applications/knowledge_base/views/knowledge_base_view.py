@@ -11,62 +11,69 @@ from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
     DocumentChunkOut,
     DocumentChunkUpdate,
 )
-from backend.applications.knowledge_base.services.knowledge_base_service import KnowledgeBaseService
+from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
+from backend.applications.knowledge_base.dependencies import get_knowledge_base_crud
 
-router = APIRouter(tags=["knowledge_base"])
+knowledge_base = APIRouter(tags=["knowledge_base"])
 
 
 # ---------- 知识库 ----------
 
-@router.post("/", response_model=KnowledgeBaseOut)
+@knowledge_base.post("/", response_model=KnowledgeBaseOut)
 async def create_knowledge_base(
     kb_data: KnowledgeBaseCreate,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    return await KnowledgeBaseService.create(current_user, kb_data)
+    return await kb_crud.create_kb(current_user, kb_data)
 
 
-@router.get("/", response_model=List[KnowledgeBaseOut])
+@knowledge_base.get("/", response_model=List[KnowledgeBaseOut])
 async def list_knowledge_bases(
     search: str = None,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    return await KnowledgeBaseService.list_kbs(current_user, search)
+    return await kb_crud.list_kbs(current_user, search)
 
 
-@router.get("/{kb_id}", response_model=KnowledgeBaseOut)
+@knowledge_base.get("/{kb_id}", response_model=KnowledgeBaseOut)
 async def get_knowledge_base(
     kb_id: str,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    return await KnowledgeBaseService.get_kb(kb_id, current_user)
+    return await kb_crud.get_kb(kb_id, current_user)
 
 
-@router.put("/{kb_id}", response_model=KnowledgeBaseOut)
+@knowledge_base.put("/{kb_id}", response_model=KnowledgeBaseOut)
 async def update_knowledge_base(
     kb_id: str,
     kb_data: KnowledgeBaseCreate,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    return await KnowledgeBaseService.update_kb(kb_id, current_user, kb_data)
+    return await kb_crud.update_kb(kb_id, current_user, kb_data)
 
 
-@router.delete("/{kb_id}")
+@knowledge_base.delete("/{kb_id}")
 async def delete_knowledge_base(
     kb_id: str,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    await KnowledgeBaseService.delete_kb(kb_id, current_user)
+    await kb_crud.delete_kb(kb_id, current_user)
     return {"detail": "知识库已删除"}
 
 
-@router.post("/{kb_id}/documents", response_model=DocumentOut)
+@knowledge_base.post("/{kb_id}/documents", response_model=DocumentOut)
 async def upload_document(
     kb_id: str,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    doc = await KnowledgeBaseService.upload_document(kb_id, current_user, file)
+    doc = await kb_crud.upload_document(kb_id, current_user, file)
     return DocumentOut(
         id=doc.id,
         kb_id=doc.kb_id,
@@ -74,16 +81,17 @@ async def upload_document(
         file_size=doc.file_size,
         chunk_count=doc.chunk_count,
         status=doc.status,
-        created_at=doc.created_at,
+        created_at=doc.created_time,
     )
 
 
-@router.get("/{kb_id}/documents", response_model=List[DocumentOut])
+@knowledge_base.get("/{kb_id}/documents", response_model=List[DocumentOut])
 async def list_documents(
     kb_id: str,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    docs = await KnowledgeBaseService.list_documents(kb_id, current_user)
+    docs = await kb_crud.list_documents(kb_id, current_user)
     return [
         DocumentOut(
             id=d.id,
@@ -92,31 +100,33 @@ async def list_documents(
             file_size=d.file_size,
             chunk_count=d.chunk_count,
             status=d.status,
-            created_at=d.created_at,
+            created_at=d.created_time,
         )
         for d in docs
     ]
 
 
-@router.delete("/{kb_id}/documents/{doc_id}")
+@knowledge_base.delete("/{kb_id}/documents/{doc_id}")
 async def delete_document(
     kb_id: str,
     doc_id: str,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    await KnowledgeBaseService.delete_document(kb_id, doc_id, current_user)
+    await kb_crud.delete_document(kb_id, doc_id, current_user)
     return {"detail": "文档已删除"}
 
 
-@router.get("/{kb_id}/chunks", response_model=List[DocumentChunkOut])
+@knowledge_base.get("/{kb_id}/chunks", response_model=List[DocumentChunkOut])
 async def list_chunks(
     kb_id: str,
     doc_id: str = None,
     page: int = 1,
     page_size: int = 50,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    chunks = await KnowledgeBaseService.list_chunks(
+    chunks = await kb_crud.list_chunks(
         kb_id, current_user, doc_id, page, page_size
     )
     return [
@@ -125,36 +135,38 @@ async def list_chunks(
             doc_id=c.doc_id,
             content=c.content,
             chunk_index=c.chunk_index,
-            created_at=c.created_at,
+            created_at=c.created_time,
         )
         for c in chunks
     ]
 
 
-@router.get("/{kb_id}/chunks/{chunk_id}", response_model=DocumentChunkOut)
+@knowledge_base.get("/{kb_id}/chunks/{chunk_id}", response_model=DocumentChunkOut)
 async def get_chunk(
     kb_id: str,
     chunk_id: str,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    chunk = await KnowledgeBaseService.get_chunk(kb_id, chunk_id, current_user)
+    chunk = await kb_crud.get_chunk(kb_id, chunk_id, current_user)
     return DocumentChunkOut(
         id=chunk.id,
         doc_id=chunk.doc_id,
         content=chunk.content,
         chunk_index=chunk.chunk_index,
-        created_at=chunk.created_at,
+        created_at=chunk.created_time,
     )
 
 
-@router.put("/{kb_id}/chunks/{chunk_id}", response_model=DocumentChunkOut)
+@knowledge_base.put("/{kb_id}/chunks/{chunk_id}", response_model=DocumentChunkOut)
 async def update_chunk(
     kb_id: str,
     chunk_id: str,
     chunk_data: DocumentChunkUpdate,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    chunk = await KnowledgeBaseService.update_chunk(
+    chunk = await kb_crud.update_chunk(
         kb_id, chunk_id, current_user, chunk_data
     )
     return DocumentChunkOut(
@@ -162,15 +174,16 @@ async def update_chunk(
         doc_id=chunk.doc_id,
         content=chunk.content,
         chunk_index=chunk.chunk_index,
-        created_at=chunk.created_at,
+        created_at=chunk.created_time,
     )
 
 
-@router.delete("/{kb_id}/chunks/{chunk_id}")
+@knowledge_base.delete("/{kb_id}/chunks/{chunk_id}")
 async def delete_chunk(
     kb_id: str,
     chunk_id: str,
     current_user: User = Depends(get_current_user),
+    kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
-    await KnowledgeBaseService.delete_chunk(kb_id, chunk_id, current_user)
+    await kb_crud.delete_chunk(kb_id, chunk_id, current_user)
     return {"detail": "知识块已删除"}
