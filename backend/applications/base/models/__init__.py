@@ -1,20 +1,16 @@
-"""Tortoise ORM 模型聚合（供 Aerich 发现）"""
+# -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : fastapi-template
+@Module  : __init__.py
+@DateTime: 2025/4/28 18:07
+"""
 
-from backend.applications.user.models.user import User
-from backend.applications.knowledge_base.models.knowledge_base import (
-    KnowledgeBase,
-    Document,
-    DocumentChunk,
-)
-from backend.applications.model_config.models.model_config import ModelConfig
-from backend.applications.conversation.models.conversation import Conversation, Message
 
-__all__ = [
-    "User",
-    "KnowledgeBase",
-    "Document",
-    "DocumentChunk",
-    "ModelConfig",
-    "Conversation",
-    "Message",
-]
+def print_hi(name):
+    print(f'Hi, {name}')
+
+
+if __name__ == '__main__':
+    print_hi('Python')
