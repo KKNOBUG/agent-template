@@ -12,9 +12,9 @@ from typing import Iterable
 
 from fastapi import Request
 
-from configure import PROJECT_CONFIG
-from core.responses import UnauthorizedResponse
-from services import AuthControl
+from backend.configure import PROJECT_CONFIG
+from backend.core.responses import UnauthorizedResponse
+from backend.services import AuthControl
 
 
 def _normalize_path(path: str) -> str:

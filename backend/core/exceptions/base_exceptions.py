@@ -10,7 +10,7 @@ from typing import Union, Optional
 
 import orjson
 
-from enums import BaseErrorEnum
+from backend.enums import BaseErrorEnum
 
 
 class BaseExceptions(Exception):

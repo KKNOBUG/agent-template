@@ -23,18 +23,18 @@ from tortoise import Tortoise
 from tortoise.contrib.fastapi import register_tortoise
 from tortoise.exceptions import DoesNotExist
 
-from configure import PROJECT_CONFIG, LOGGER
-from core.exceptions.http_exceptions import (
+from backend.configure import PROJECT_CONFIG, LOGGER
+from backend.core.exceptions.http_exceptions import (
     request_validation_exception_handler,
     response_validation_exception_handler,
     http_exception_handler,
     null_point_exception_handler,
     app_exception_handler,
 )
-from core.middlewares.app_middleware import logging_middleware
-from core.middlewares.auth_middleware import auth_middleware
-from core.middlewares.request_context_middleware import request_context_middleware
-from services import DependAuth
+from backend.core.middlewares.app_middleware import logging_middleware
+from backend.core.middlewares.auth_middleware import auth_middleware
+from backend.core.middlewares.request_context_middleware import request_context_middleware
+from backend.services import DependAuth
 
 
 async def register_database(app: FastAPI) -> None:
