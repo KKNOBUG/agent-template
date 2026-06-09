@@ -13,19 +13,19 @@ from fastapi.routing import APIRoute
 from tortoise import Tortoise
 from tortoise.exceptions import DBConnectionError
 
-from core.initializations import (
+from backend.core.initializations import (
     register_database,
     register_exceptions,
     register_middlewares,
     register_routers,
     init_database_table,
 )
-from core.responses import SuccessResponse
+from backend.core.responses import SuccessResponse
 
 try:
-    from configure import PROJECT_CONFIG, ROUTER_SUMMARY, ROUTER_TAGS
+    from backend.configure import PROJECT_CONFIG, ROUTER_SUMMARY, ROUTER_TAGS
 except ImportError:
-    from core.exceptions import NotImplementedException
+    from backend.core.exceptions import NotImplementedException
 
     raise NotImplementedException(message="导入依赖配置失败,请检查 configure.project_config.py 文件")
 
