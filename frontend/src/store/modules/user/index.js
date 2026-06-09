@@ -28,16 +28,18 @@ export const useUserStore = defineStore('user', {
       return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=F4511E`
     },
     isAdmin() {
-      return this.userInfo?.is_admin || false
+      return this.userInfo?.is_superuser || false
     },
     lastLogin() {
-      return this.userInfo?.created_at || '-'
+      return this.userInfo?.last_login || '-'
     },
   },
   actions: {
     async getUserInfo() {
       try {
-        const data = await api.getUserInfo()
+        const res = await api.getUserInfo()
+        // 后端 /base/auth/userinfo 返回 SuccessResponse 包装，取 data
+        const data = res.data || res
         this.userInfo = data || {}
         return data
       } catch (error) {

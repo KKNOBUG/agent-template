@@ -35,9 +35,9 @@ class ProjectConfig(BaseSettings):
     APP_VERSION: str = "3.0.0"
     APP_TITLE: str = "企业级RAG问答系统"
     APP_DESCRIPTION: str = """企业级RAG问答系统"""
-    APP_DOCS_URL: str = "/krun/docs"
-    APP_REDOC_URL: str = "/krun/redoc"
-    APP_OPENAPI_URL: str = "/krun/openapi_url"
+    APP_DOCS_URL: str = "/KeenRobot/docs"
+    APP_REDOC_URL: str = "/KeenRobot/redoc"
+    APP_OPENAPI_URL: str = "/KeenRobot/openapi_url"
     APP_OPENAPI_JS_URL: str = "/static/swagger-ui/swagger-ui-bundle.js"
     APP_OPENAPI_CSS_URL: str = "/static/swagger-ui/swagger-ui.css"
     APP_OPENAPI_FAVICON_URL: str = "/static/swagger-ui/favicon-32x32.png"
@@ -53,12 +53,8 @@ class ProjectConfig(BaseSettings):
     SERVER_DEBUG: bool = SERVER_SYSTEM != "Linux"  # Windows | Linux | Darwin
     SERVER_DELAY: int = 5
 
-    # 安全认证配置（须在 .env 或环境变量中配置）
-    AUTH_SECRET_KEY: str = Field(
-        default="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        min_length=64,
-        description="JWT密钥，建议: openssl rand -hex 32",
-    )
+    # 安全认证配置（必须在.env文件或环境变量中配置）
+    AUTH_SECRET_KEY: str = Field(default="", min_length=64, description="JWT密钥，建议: openssl rand -hex 32")
     AUTH_JWT_ALGORITHM: str = "HS256"
     AUTH_JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 day
 
@@ -91,8 +87,6 @@ class ProjectConfig(BaseSettings):
     STATIC_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "static"))
     STATIC_IMG_DIR: str = os.path.abspath(os.path.join(STATIC_DIR, "image"))
     MIGRATION_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "migrations"))
-    UPLOAD_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "uploads"))
-    DATA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "output", "data"))
     CHROMA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "chroma_db"))
     RAG_DB_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "rag_db"))
 
@@ -212,7 +206,7 @@ class ProjectConfig(BaseSettings):
 
     # 数据库配置
     DB_TYPE: str = Field(default="sqlite", description="sqlite 或 mysql")
-    DATABASE_AUTO_MIGRATION: bool = False
+    DATABASE_AUTO_MIGRATION: bool = True
     DATABASE_CONNECTIONS: Dict[str, Any] = {}
     DATABASE_URL: str = Field(default="", description="数据库地址")
     DATABASE_HOST: str = Field(default="localhost", description="数据库主机")
@@ -238,8 +232,8 @@ class ProjectConfig(BaseSettings):
                 if not getattr(self, field_name):
                     raise ValueError(f"{field_name} 配置为空，请检查.env文件或环境变量")
 
-        Path(self.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
-        Path(self.DATA_DIR).mkdir(parents=True, exist_ok=True)
+        Path(self.OUTPUT_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+        Path(self.OUTPUT_DATAGRAM_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.CHROMA_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.RAG_DB_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -284,11 +278,11 @@ class ProjectConfig(BaseSettings):
 
     @property
     def upload_path(self) -> Path:
-        return Path(self.UPLOAD_DIR)
+        return Path(self.OUTPUT_UPLOAD_DIR)
 
     @property
-    def data_path(self) -> Path:
-        return Path(self.DATA_DIR)
+    def datagram_path(self) -> Path:
+        return Path(self.OUTPUT_DATAGRAM_DIR)
 
     @property
     def chroma_path(self) -> Path:

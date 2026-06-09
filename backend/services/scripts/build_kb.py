@@ -28,7 +28,7 @@ def main():
     print("=" * 50)
 
     print("\n[1/3] 加载 PDF 文档...")
-    docs = load_all_pdfs(PROJECT_CONFIG.data_path)
+    docs = load_all_pdfs(PROJECT_CONFIG.datagram_path)
     print(f"  共加载 {len(docs)} 页文档")
     if not docs:
         print("错误: 未找到 PDF，请检查 data/ 目录")

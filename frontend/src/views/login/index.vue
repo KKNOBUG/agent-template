@@ -95,7 +95,9 @@ async function handleLogin() {
     const res = await api.login({ username, password: password.toString() })
     window.$message?.success(t('views.login.message_login_success'))
 
-    setToken(res.access_token)
+    // 后端 /base/auth/access_token 返回 SuccessResponse 包装，取 data.access_token
+    const token = res.data?.access_token || res.access_token
+    setToken(token)
     lStorage.set('loginInfo', { username, password: password.toString() })
 
     const userStore = useUserStore()

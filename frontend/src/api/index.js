@@ -12,10 +12,11 @@ function parseErrorDetail(detail) {
 }
 
 export default {
-  login: (data) => request.post('/auth/login', data, { noNeedToken: true }),
-  register: (data) => request.post('/auth/register', data, { noNeedToken: true }),
-  getUserInfo: () => request.get('/auth/me'),
-  logout: () => request.post('/auth/logout'),
+  // 认证接口复用 /base/auth/* 路径（后端 user 模块统一认证）
+  login: (data) => request.post('/base/auth/access_token', data, { noNeedToken: true }),
+  register: (data) => request.post('/user/create', data, { noNeedToken: true }),
+  getUserInfo: () => request.post('/base/auth/userinfo'),
+  logout: () => request.post('/user/logout'),
 
   fetchConversations: () => request.get('/conversations/'),
   fetchConversation: (id) => request.get(`/conversations/${id}`),

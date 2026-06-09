@@ -29,7 +29,7 @@ def load_pdf(file_path: Union[str, Path]) -> list[Document]:
 
 def load_all_pdfs(data_dir=None) -> list[Document]:
     """加载data目录下所有PDF文件"""
-    data_path = Path(data_dir or PROJECT_CONFIG.data_path)
+    data_path = Path(data_dir or PROJECT_CONFIG.datagram_path)
     all_docs = []
     for pdf_file in sorted(data_path.glob("*.pdf")):
         docs = load_pdf(pdf_file)
