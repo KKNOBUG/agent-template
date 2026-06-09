@@ -8,11 +8,11 @@
 """
 from tortoise import fields
 
-from backend.applications.base.services.scaffold import ScaffoldModel, TimestampMixin
+from backend.applications.base.services.scaffold import ScaffoldModel, TimestampMixin, MaintainMixin
 from backend.enums import HTTPMethod
 
 
-class Audit(ScaffoldModel, TimestampMixin):
+class Audit(ScaffoldModel, MaintainMixin, TimestampMixin):
     user_id = fields.BigIntField(index=True, description="用户ID")
     username = fields.CharField(max_length=32, index=True, description="用户名称")
     request_time = fields.DatetimeField(index=True, description="请求时间")
@@ -32,3 +32,4 @@ class Audit(ScaffoldModel, TimestampMixin):
 
     class Meta:
         table = "keenrobot_audit"
+        ordering = ["created_time"]

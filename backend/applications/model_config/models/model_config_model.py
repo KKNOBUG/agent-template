@@ -2,8 +2,10 @@ import uuid
 
 from tortoise import fields, models
 
+from backend.applications.base.services.scaffold import ScaffoldModel, MaintainMixin, TimestampMixin, StateModel
 
-class ModelConfig(models.Model):
+
+class ModelConfig(ScaffoldModel, MaintainMixin, TimestampMixin, StateModel):
     """模型配置"""
 
     id = fields.CharField(max_length=36, pk=True, default=lambda: str(uuid.uuid4()))
@@ -16,8 +18,6 @@ class ModelConfig(models.Model):
     max_tokens = fields.IntField(default=2048)
     top_p = fields.FloatField(default=0.95)
     is_default = fields.BooleanField(default=True)
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
         table = "keenrobot_model_configs"

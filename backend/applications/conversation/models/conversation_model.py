@@ -10,13 +10,17 @@ import uuid
 
 from tortoise import fields, models
 
+from backend.applications.base.services.scaffold import ScaffoldModel, MaintainMixin, TimestampMixin, StateModel
 
-class Conversation(models.Model):
+
+class Conversation(ScaffoldModel, MaintainMixin, TimestampMixin, StateModel):
     """对话会话"""
 
     id = fields.CharField(max_length=36, pk=True, default=lambda: str(uuid.uuid4()))
     user = fields.ForeignKeyField(
-        "models.User", related_name="conversations", on_delete=fields.CASCADE
+        "models.User",
+        related_name="conversations",
+        on_delete=fields.CASCADE
     )
     title = fields.CharField(max_length=200, default="新对话")
     kb_ids = fields.TextField(null=True)
@@ -26,26 +30,24 @@ class Conversation(models.Model):
         null=True,
         on_delete=fields.SET_NULL,
     )
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now=True)
-
     messages: fields.ReverseRelation["Message"]
 
     class Meta:
         table = "keenrobot_conversations"
 
 
-class Message(models.Model):
+class Message(ScaffoldModel, MaintainMixin, TimestampMixin, StateModel):
     """聊天消息"""
 
     id = fields.IntField(pk=True)
     conversation = fields.ForeignKeyField(
-        "models.Conversation", related_name="messages", on_delete=fields.CASCADE
+        "models.Conversation",
+        related_name="messages",
+        on_delete=fields.CASCADE
     )
     role = fields.CharField(max_length=20)
     content = fields.TextField()
-    created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
         table = "keenrobot_messages"
-        ordering = ["created_at"]
+        ordering = ["created_time"]

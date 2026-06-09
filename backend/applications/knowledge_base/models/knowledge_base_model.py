@@ -2,19 +2,21 @@ import uuid
 
 from tortoise import fields, models
 
+from backend.applications.base.services.scaffold import ScaffoldModel, TimestampMixin
 
-class KnowledgeBase(models.Model):
+
+class KnowledgeBase(ScaffoldModel, TimestampMixin):
     """知识库"""
 
     id = fields.CharField(max_length=36, pk=True, default=lambda: str(uuid.uuid4()))
     name = fields.CharField(max_length=100)
     description = fields.TextField(null=True)
     owner = fields.ForeignKeyField(
-        "models.User", related_name="knowledge_bases", on_delete=fields.CASCADE
+        "models.User",
+        related_name="knowledge_bases",
+        on_delete=fields.CASCADE
     )
     is_public = fields.BooleanField(default=False)
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now=True)
 
     documents: fields.ReverseRelation["Document"]
 
@@ -22,7 +24,7 @@ class KnowledgeBase(models.Model):
         table = "keenrobot_knowledge_bases"
 
 
-class Document(models.Model):
+class Document(ScaffoldModel, TimestampMixin):
     """文档"""
 
     id = fields.CharField(max_length=36, pk=True, default=lambda: str(uuid.uuid4()))
@@ -35,7 +37,6 @@ class Document(models.Model):
     chunk_count = fields.IntField(default=0)
     status = fields.CharField(max_length=20, default="processing")
     error_msg = fields.TextField(null=True)
-    created_at = fields.DatetimeField(auto_now_add=True)
 
     chunks: fields.ReverseRelation["DocumentChunk"]
 
@@ -43,7 +44,7 @@ class Document(models.Model):
         table = "keenrobot_documents"
 
 
-class DocumentChunk(models.Model):
+class DocumentChunk(ScaffoldModel, TimestampMixin):
     """文档分块"""
 
     id = fields.CharField(max_length=36, pk=True, default=lambda: str(uuid.uuid4()))
@@ -53,7 +54,6 @@ class DocumentChunk(models.Model):
     content = fields.TextField()
     chunk_index = fields.IntField()
     chroma_id = fields.CharField(max_length=100, null=True)
-    created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
         table = "keenrobot_document_chunks"
