@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 
 from backend.services.rag_auth import get_current_user
-from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.user.models.user_model import User
 from backend.applications.model_config.schemas.model_config_schema import ModelConfigCreate, ModelConfigOut
 from backend.applications.model_config.services.model_config_service import ModelConfigService
 

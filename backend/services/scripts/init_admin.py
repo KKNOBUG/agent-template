@@ -16,7 +16,7 @@ from tortoise import Tortoise
 
 from backend.configure import PROJECT_CONFIG
 from backend.services.rag_security import get_password_hash
-from backend.applications.rag_user.models.rag_user_model import RagUser
+from backend.applications.user.models.user_model import User
 
 
 def build_tortoise_config():
@@ -36,21 +36,24 @@ def build_tortoise_config():
 async def init_admin():
     await Tortoise.init(config=build_tortoise_config())
 
-    existing = await RagUser.get_or_none(username="admin")
+    existing = await User.get_or_none(username="admin")
     if existing:
         print("管理员账号已存在，更新密码...")
-        existing.hashed_password = get_password_hash("admin")
-        existing.is_admin = True
+        existing.password = get_password_hash("admin")
         existing.is_active = True
+        existing.is_superuser = True
         await existing.save()
     else:
         print("创建管理员账号...")
-        await RagUser.create(
+        await User.create(
             username="admin",
-            email="admin@example.com",
-            hashed_password=get_password_hash("admin"),
+            alias="系统管理员",
+            email="admin@test.com",
+            phone="18888888888",
+            avatar="/static/avatar/default/20250101010101.png",
+            password=get_password_hash("admin"),
             is_active=True,
-            is_admin=True,
+            is_superuser=True,
         )
 
     await Tortoise.close_connections()

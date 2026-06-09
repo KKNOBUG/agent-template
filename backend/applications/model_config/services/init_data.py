@@ -7,14 +7,14 @@
 @DateTime: 2026/6/8
 """
 from backend.applications.model_config.models.model_config_model import ModelConfig
-from backend.applications.rag_user.models.rag_user_model import RagUser
+from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
 
 
 async def init_model_configs():
-    admin = await RagUser.get_or_none(username="admin")
+    admin = await User.get_or_none(username="admin")
     if not admin:
-        LOGGER.warning("跳过模型配置初始化: RAG 管理员账号不存在")
+        LOGGER.warning("跳过模型配置初始化: 管理员账号不存在")
         return
 
     if await ModelConfig.filter(user_id=admin.id).exists():

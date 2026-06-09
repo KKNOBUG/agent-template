@@ -10,7 +10,7 @@ class KnowledgeBase(models.Model):
     name = fields.CharField(max_length=100)
     description = fields.TextField(null=True)
     owner = fields.ForeignKeyField(
-        "models.RagUser", related_name="knowledge_bases", on_delete=fields.CASCADE
+        "models.User", related_name="knowledge_bases", on_delete=fields.CASCADE
     )
     is_public = fields.BooleanField(default=False)
     created_at = fields.DatetimeField(auto_now_add=True)

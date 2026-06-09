@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 
 from backend.services.rag_auth import get_current_user
-from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.user.models.user_model import User
 from backend.applications.conversation.schemas.conversation_schema import ConversationOut, ConversationDetail
 from backend.applications.conversation.services.conversation_service import ConversationService
 

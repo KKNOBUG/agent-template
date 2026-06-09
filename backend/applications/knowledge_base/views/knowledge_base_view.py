@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from backend.services.rag_auth import get_current_user
-from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.user.models.user_model import User
 from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
     KnowledgeBaseCreate,
     KnowledgeBaseOut,

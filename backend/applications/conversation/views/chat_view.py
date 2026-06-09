@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
 
 from backend.services.rag_auth import get_current_user
-from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.user.models.user_model import User
 from backend.applications.conversation.schemas.conversation_schema import ChatRequest
 from backend.applications.conversation.services.chat_service import ChatService
 

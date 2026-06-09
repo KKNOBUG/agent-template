@@ -3,7 +3,7 @@
 @Author  : yangkai
 @Email   : 807440781@qq.com
 @Project : KeenRobot
-@Module  : init_admin.py
+@Module  : init_model_configs.py
 @DateTime: 2025/4/28 18:07
 """
 """初始化 / 迁移 DeepSeek 模型配置（直接运行脚本时使用）"""
@@ -15,7 +15,7 @@ import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 from tortoise import Tortoise
 
 from backend.configure import PROJECT_CONFIG
-from backend.applications.rag_user.models.rag_user_model import RagUser
+from backend.applications.user.models.user_model import User
 from backend.applications.model_config.models.model_config_model import ModelConfig
 
 DEEPSEEK_CONFIGS = [
@@ -55,7 +55,7 @@ def build_tortoise_config():
 async def init_model_configs():
     await Tortoise.init(config=build_tortoise_config())
 
-    admin = await RagUser.get_or_none(username="admin")
+    admin = await User.get_or_none(username="admin")
     if not admin:
         print("❌ Admin 账号不存在，请先运行 init_admin.py")
         await Tortoise.close_connections()

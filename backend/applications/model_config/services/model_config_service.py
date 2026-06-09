@@ -2,19 +2,18 @@ from typing import List, Optional
 
 from fastapi import HTTPException, status
 
-from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.user.models.user_model import User
 from backend.applications.model_config.models.model_config_model import ModelConfig
-from backend.applications.rag_user.services.user_repo import UserRepository
 from backend.applications.model_config.services.model_config_repo import ModelConfigRepository
 from backend.applications.model_config.schemas.model_config_schema import ModelConfigCreate
 
 
 class ModelConfigService:
     @staticmethod
-    async def _resolve_user_id(current_user: User) -> str:
-        if current_user.is_admin:
+    async def _resolve_user_id(current_user: User) -> int:
+        if current_user.is_superuser:
             return current_user.id
-        admin = await UserRepository.get_admin()
+        admin = await User.get_or_none(username="admin")
         return admin.id if admin else current_user.id
 
     @classmethod
@@ -94,8 +93,8 @@ class ModelConfigService:
         current_user: User,
         model_config_id: Optional[str] = None,
     ) -> Optional[ModelConfig]:
-        if not current_user.is_admin:
-            admin = await UserRepository.get_admin()
+        if not current_user.is_superuser:
+            admin = await User.get_or_none(username="admin")
             if admin:
                 config = await ModelConfigRepository.get_default(admin.id)
                 if config:
