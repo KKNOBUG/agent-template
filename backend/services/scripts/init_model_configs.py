@@ -6,9 +6,9 @@ import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 
 from tortoise import Tortoise
 
-from backend.configure.config import TORTOISE_ORM
-from backend.applications.user.models.user import User
-from backend.applications.model_config.models.model_config import ModelConfig
+from configure import TORTOISE_ORM
+from applications.rag_user.models.rag_user_model import User
+from applications.model_config.models.model_config_model import ModelConfig
 
 DEEPSEEK_CONFIGS = [
     {

@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from tortoise.expressions import Q
 
-from backend.applications.knowledge_base.models.knowledge_base import KnowledgeBase, Document, DocumentChunk
+from backend.applications.knowledge_base.models.knowledge_base_model import KnowledgeBase, Document, DocumentChunk
 
 
 class KnowledgeBaseRepository:

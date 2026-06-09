@@ -188,12 +188,15 @@ async def logging_middleware(request: Request, call_next):
             "response_header": response_header,
             "response_elapsed": response_elapsed
         }
-        if isinstance(response_body, str):
-            _response = orjson.loads(response_body)
-            audit_log["response_code"] = _response.get("code", "")
-            audit_log["response_message"] = _response.get("message", "")[:512]
-            audit_log["response_params"] = response_body
-            del _response
+        if isinstance(response_body, str) and response_body:
+            try:
+                _response = orjson.loads(response_body)
+                if isinstance(_response, dict):
+                    audit_log["response_code"] = _response.get("code", "")
+                    audit_log["response_message"] = _response.get("message", "")[:512]
+                audit_log["response_params"] = response_body
+            except orjson.JSONDecodeError:
+                audit_log["response_params"] = response_body
 
         request_message: str = f"\n> > > > > > > > > > > > > > > > > > > >\n" \
                                f"请求时间：{audit_log.get('request_time')}\n" \

@@ -2,15 +2,15 @@ from datetime import timedelta
 
 from fastapi import HTTPException, status
 
-from backend.configure.config import PROJECT_CONFIG
-from backend.services.security import (
+from backend.configure import PROJECT_CONFIG
+from backend.services.rag_security import (
     create_access_token,
     get_password_hash,
     verify_password,
 )
-from backend.applications.user.models.user import User
-from backend.applications.user.services.user_repo import UserRepository
-from backend.applications.user.schemas.user import UserCreate, UserLogin, Token
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.rag_user.services.user_repo import UserRepository
+from backend.applications.rag_user.schemas.rag_user_schema import UserCreate, UserLogin, Token
 
 
 class AuthService:

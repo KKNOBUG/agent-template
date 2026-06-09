@@ -1,6 +1,6 @@
 from typing import Optional, List
 
-from backend.applications.model_config.models.model_config import ModelConfig
+from backend.applications.model_config.models.model_config_model import ModelConfig
 
 
 class ModelConfigRepository:

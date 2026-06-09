@@ -73,33 +73,49 @@ async def auth_middleware(request: Request, call_next):
         return await call_next(request)
 
     whitelist = [
-        # login
         "POST /user/create",
         "POST /base/auth/access_token",
-
-        # root
+        "POST /api/auth/login",
+        "POST /api/auth/register",
+        "GET /api/health",
         "GET /",
-
-        # openapi/docs
         f"GET {PROJECT_CONFIG.APP_DOCS_URL}",
         f"GET {PROJECT_CONFIG.APP_REDOC_URL}",
         f"GET {PROJECT_CONFIG.APP_OPENAPI_URL}",
-
-        # static assets
         "* /static/*",
     ]
 
     if _is_whitelisted(whitelist=whitelist, request_method=request_method, request_path=request_path):
         return await call_next(request)
 
+    # /api/* 路由使用 RAG Bearer 鉴权
+    if request_path.startswith("/api"):
+        from services.rag_auth import get_current_user
+        from fastapi.security import HTTPAuthorizationCredentials
+        from fastapi import HTTPException
+
+        authorization = request.headers.get("Authorization", "")
+        token = request.headers.get("token")
+        raw_token = None
+        if authorization.lower().startswith("bearer "):
+            raw_token = authorization[7:].strip()
+        elif token:
+            raw_token = token
+        if not raw_token:
+            return UnauthorizedResponse(message="请求服务鉴权失败, 请携带有效 Token 进行访问")
+        try:
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=raw_token)
+            await get_current_user(credentials=creds, token=None)
+        except HTTPException:
+            return UnauthorizedResponse(message="请求服务鉴权已过期, 请重新登录获取有效 Token 后进行访问")
+        return await call_next(request)
+
     token = request.headers.get("token")
     if not token:
         return UnauthorizedResponse(message="请求服务鉴权失败, 请携带有效 Token 进行访问")
 
-    # 对( RBAC发生在依赖权限中)进行认证
     try:
         await AuthControl.is_authed(token)
-    except Exception as e:
-        # 统一以未认证返回，避免调试模式下泄露异常细节
+    except Exception:
         return UnauthorizedResponse(message="请求服务鉴权已过期, 请重新登录获取有效 Token 后进行访问")
     return await call_next(request)

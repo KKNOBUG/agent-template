@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from typing import List, Dict
 
-from backend.configure.config import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
+from backend.configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
 from backend.applications.base.rag.embeddings import get_single_embedding, is_embedding_configured
 from backend.applications.base.rag.llm import QwenLLM, format_messages
 from backend.applications.base.rag.chroma_store import chroma_store

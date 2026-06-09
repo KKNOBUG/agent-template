@@ -1,3 +1,23 @@
-from backend.configure.config import PROJECT_CONFIG, TORTOISE_ORM, get_project_config
+# -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : KeenRunner Template
+@Module  : __init__.py
+@DateTime: 2025/1/12 19:38
+"""
+from .global_config import GLOBAL_CONFIG
+from .logging_config import LOGGER
+from .project_config import PROJECT_CONFIG
+from .rag_config import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT
+from .router_registry import ROUTER_SUMMARY, ROUTER_TAGS
 
-__all__ = ["PROJECT_CONFIG", "TORTOISE_ORM", "get_project_config"]
+__all__ = (
+    "GLOBAL_CONFIG",
+    "LOGGER",
+    "PROJECT_CONFIG",
+    "RAG_SYSTEM_PROMPT",
+    "RAG_USER_PROMPT",
+    "ROUTER_SUMMARY",
+    "ROUTER_TAGS",
+)

@@ -8,7 +8,7 @@ class ModelConfig(models.Model):
 
     id = fields.CharField(max_length=36, pk=True, default=lambda: str(uuid.uuid4()))
     user = fields.ForeignKeyField(
-        "models.User", related_name="model_configs", on_delete=fields.CASCADE
+        "models.RagUser", related_name="model_configs", on_delete=fields.CASCADE
     )
     name = fields.CharField(max_length=50, default="默认配置")
     model_name = fields.CharField(max_length=50, default="deepseek-chat")

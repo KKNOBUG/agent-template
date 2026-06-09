@@ -3,7 +3,7 @@
 from typing import List
 import requests
 
-from backend.configure.config import PROJECT_CONFIG
+from backend.configure import PROJECT_CONFIG
 
 
 def is_embedding_configured() -> bool:

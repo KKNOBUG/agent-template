@@ -19,6 +19,7 @@ from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
+from tortoise import Tortoise
 from tortoise.contrib.fastapi import register_tortoise
 from tortoise.exceptions import DoesNotExist
 
@@ -55,6 +56,9 @@ async def register_database(app: FastAPI) -> None:
         add_exception_handlers=PROJECT_CONFIG.SERVER_DEBUG,
     )
 
+    if not Tortoise._inited:
+        await Tortoise.init(config=config)
+
     # 确保迁移目录存在
     if not os.path.exists(PROJECT_CONFIG.MIGRATION_DIR):
         os.makedirs(PROJECT_CONFIG.MIGRATION_DIR)
@@ -85,6 +89,8 @@ async def register_database(app: FastAPI) -> None:
             f"生产环境(Linux操作系统)始终执行迁移指令, 不提供关闭选项; "
             f"开发环境(Windows操作系统)仅当显示打开[DATABASE_AUTO_MIGRATION]时执行迁移指令。"
         )
+        if PROJECT_CONFIG.DB_TYPE == "sqlite":
+            await Tortoise.generate_schemas(safe=True)
         return
 
     # 生成迁移文件
@@ -191,3 +197,15 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=user_secure_router, prefix="/user", tags=["用户服务"], dependencies=[DependAuth])
     app.include_router(router=example_category_router, prefix="/example", tags=["示例服务-商品分类"], dependencies=[DependAuth])
     app.include_router(router=example_product_router, prefix="/example", tags=["示例服务-商品模型"], dependencies=[DependAuth])
+
+    # KeenRobot RAG 业务 API（兼容前端 /api/* 路径）
+    from applications.rag_user.views import auth_router
+    from applications.conversation.views import chat_router, history_router
+    from applications.knowledge_base.views import kb_router
+    from applications.model_config.views import model_router
+
+    app.include_router(router=auth_router, prefix="/api/auth", tags=["RAG-认证"])
+    app.include_router(router=chat_router, prefix="/api/chat", tags=["RAG-对话"])
+    app.include_router(router=history_router, prefix="/api/conversations", tags=["RAG-对话历史"])
+    app.include_router(router=kb_router, prefix="/api/knowledge-bases", tags=["RAG-知识库"])
+    app.include_router(router=model_router, prefix="/api/model-configs", tags=["RAG-模型配置"])

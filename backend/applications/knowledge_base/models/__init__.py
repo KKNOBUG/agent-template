@@ -1,4 +1,4 @@
-from backend.applications.knowledge_base.models.knowledge_base import (
+from backend.applications.knowledge_base.models.knowledge_base_model import (
     KnowledgeBase,
     Document,
     DocumentChunk,

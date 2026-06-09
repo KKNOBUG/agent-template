@@ -1,4 +1,4 @@
-from backend.applications.conversation.schemas.chat import (
+from backend.applications.conversation.schemas.conversation_schema import (
     ChatRequest,
     MessageOut,
     ConversationOut,

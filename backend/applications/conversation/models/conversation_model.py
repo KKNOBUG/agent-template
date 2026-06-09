@@ -8,7 +8,7 @@ class Conversation(models.Model):
 
     id = fields.CharField(max_length=36, pk=True, default=lambda: str(uuid.uuid4()))
     user = fields.ForeignKeyField(
-        "models.User", related_name="conversations", on_delete=fields.CASCADE
+        "models.RagUser", related_name="conversations", on_delete=fields.CASCADE
     )
     title = fields.CharField(max_length=200, default="新对话")
     kb_ids = fields.TextField(null=True)

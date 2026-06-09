@@ -2,9 +2,9 @@ from typing import List
 
 from fastapi import APIRouter, Depends, File, UploadFile
 
-from backend.services.deps import get_current_user
-from backend.applications.user.models.user import User
-from backend.applications.knowledge_base.schemas.knowledge_base import (
+from backend.services.rag_auth import get_current_user
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
     KnowledgeBaseCreate,
     KnowledgeBaseOut,
     DocumentOut,
@@ -13,7 +13,7 @@ from backend.applications.knowledge_base.schemas.knowledge_base import (
 )
 from backend.applications.knowledge_base.services.knowledge_base_service import KnowledgeBaseService
 
-router = APIRouter(prefix="/api/knowledge-bases", tags=["knowledge_base"])
+router = APIRouter(tags=["knowledge_base"])
 
 
 # ---------- 知识库 ----------

@@ -1,7 +1,7 @@
 import json
 from typing import Optional, List
 
-from backend.applications.conversation.models.conversation import Conversation, Message
+from backend.applications.conversation.models.conversation_model import Conversation, Message
 
 
 class ConversationRepository:

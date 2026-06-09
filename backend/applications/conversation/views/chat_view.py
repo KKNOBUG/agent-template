@@ -3,15 +3,15 @@ import json
 from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
 
-from backend.services.deps import get_current_user
-from backend.applications.user.models.user import User
-from backend.applications.conversation.schemas.chat import ChatRequest
+from backend.services.rag_auth import get_current_user
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.conversation.schemas.conversation_schema import ChatRequest
 from backend.applications.conversation.services.chat_service import ChatService
 
 router = APIRouter(tags=["chat"])
 
 
-@router.post("/api/chat/stream")
+@router.post("/stream")
 async def chat_stream(
     req: ChatRequest,
     current_user: User = Depends(get_current_user),

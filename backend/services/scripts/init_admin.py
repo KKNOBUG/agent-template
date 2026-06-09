@@ -6,9 +6,9 @@ import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 
 from tortoise import Tortoise
 
-from backend.configure.config import TORTOISE_ORM
-from backend.services.security import get_password_hash
-from backend.applications.user.models.user import User
+from configure import TORTOISE_ORM
+from services.rag_security import get_password_hash
+from applications.rag_user.models.rag_user_model import User
 
 
 async def init_admin():

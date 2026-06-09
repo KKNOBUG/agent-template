@@ -2,12 +2,12 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
-from backend.services.deps import get_current_user
-from backend.applications.user.models.user import User
-from backend.applications.conversation.schemas.chat import ConversationOut, ConversationDetail
+from backend.services.rag_auth import get_current_user
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.conversation.schemas.conversation_schema import ConversationOut, ConversationDetail
 from backend.applications.conversation.services.conversation_service import ConversationService
 
-router = APIRouter(prefix="/api/conversations", tags=["history"])
+router = APIRouter(tags=["history"])
 
 
 @router.get("/", response_model=List[ConversationOut])

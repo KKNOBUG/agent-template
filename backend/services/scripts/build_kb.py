@@ -8,10 +8,10 @@ import uuid
 
 import _bootstrap  # noqa: F401
 
-from backend.configure.config import PROJECT_CONFIG
-from backend.applications.base.rag.chroma_store import chroma_store
-from backend.applications.base.rag.embeddings import get_qwen_embedding
-from backend.applications.base.rag.loader import load_all_pdfs, split_documents
+from configure import PROJECT_CONFIG
+from applications.base.rag.chroma_store import chroma_store
+from applications.base.rag.embeddings import get_qwen_embedding
+from applications.base.rag.loader import load_all_pdfs, split_documents
 
 
 def main():

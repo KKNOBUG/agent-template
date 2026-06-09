@@ -2,12 +2,12 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
-from backend.services.deps import get_current_user
-from backend.applications.user.models.user import User
-from backend.applications.model_config.schemas.model_config import ModelConfigCreate, ModelConfigOut
+from backend.services.rag_auth import get_current_user
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.model_config.schemas.model_config_schema import ModelConfigCreate, ModelConfigOut
 from backend.applications.model_config.services.model_config_service import ModelConfigService
 
-router = APIRouter(prefix="/api/model-configs", tags=["model_config"])
+router = APIRouter(tags=["model_config"])
 
 
 @router.get("/", response_model=List[ModelConfigOut])

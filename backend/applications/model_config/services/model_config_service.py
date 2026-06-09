@@ -2,11 +2,11 @@ from typing import List, Optional
 
 from fastapi import HTTPException, status
 
-from backend.applications.user.models.user import User
-from backend.applications.model_config.models.model_config import ModelConfig
-from backend.applications.user.services.user_repo import UserRepository
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.model_config.models.model_config_model import ModelConfig
+from backend.applications.rag_user.services.user_repo import UserRepository
 from backend.applications.model_config.services.model_config_repo import ModelConfigRepository
-from backend.applications.model_config.schemas.model_config import ModelConfigCreate
+from backend.applications.model_config.schemas.model_config_schema import ModelConfigCreate
 
 
 class ModelConfigService:

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
 
-from backend.services.deps import get_current_user
-from backend.applications.user.models.user import User
-from backend.applications.user.schemas.user import UserCreate, UserLogin, UserOut, Token
-from backend.applications.user.services.auth_service import AuthService
+from backend.services.rag_auth import get_current_user
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.rag_user.schemas.rag_user_schema import UserCreate, UserLogin, UserOut, Token
+from backend.applications.rag_user.services.auth_service import AuthService
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut)

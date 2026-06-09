@@ -6,7 +6,7 @@ from typing import List
 import chromadb
 from chromadb.config import Settings
 
-from backend.configure.config import PROJECT_CONFIG
+from backend.configure import PROJECT_CONFIG
 
 
 class ChromaStore:

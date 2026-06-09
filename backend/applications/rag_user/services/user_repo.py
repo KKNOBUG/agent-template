@@ -1,7 +1,7 @@
 from typing import Optional
 
-from backend.applications.user.models.user import User
-from backend.applications.model_config.models.model_config import ModelConfig
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.model_config.models.model_config_model import ModelConfig
 
 
 class UserRepository:

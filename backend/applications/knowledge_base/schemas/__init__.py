@@ -1,4 +1,4 @@
-from backend.applications.knowledge_base.schemas.knowledge_base import (
+from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
     KnowledgeBaseCreate,
     KnowledgeBaseOut,
     DocumentOut,

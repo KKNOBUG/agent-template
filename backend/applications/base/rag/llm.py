@@ -3,7 +3,7 @@
 from typing import AsyncIterator, List, Dict
 import httpx
 
-from backend.configure.config import PROJECT_CONFIG
+from backend.configure import PROJECT_CONFIG
 
 
 class QwenLLM:

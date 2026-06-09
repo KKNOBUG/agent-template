@@ -7,11 +7,11 @@ from fastapi import HTTPException, UploadFile, status
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from backend.configure.config import PROJECT_CONFIG
-from backend.applications.user.models.user import User
-from backend.applications.knowledge_base.models.knowledge_base import KnowledgeBase, Document, DocumentChunk
+from backend.configure import PROJECT_CONFIG
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.knowledge_base.models.knowledge_base_model import KnowledgeBase, Document, DocumentChunk
 from backend.applications.knowledge_base.services.knowledge_base_repo import KnowledgeBaseRepository
-from backend.applications.knowledge_base.schemas.knowledge_base import (
+from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
     KnowledgeBaseCreate,
     KnowledgeBaseOut,
     DocumentChunkUpdate,
