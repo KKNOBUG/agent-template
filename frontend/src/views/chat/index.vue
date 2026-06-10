@@ -1,24 +1,17 @@
 <script setup>
 defineOptions({ name: 'Chat' })
 
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
-import { NButton, NLayout, NLayoutContent, NLayoutSider, NWatermark } from 'naive-ui'
+import { NButton, NLayout, NLayoutContent, NLayoutSider } from 'naive-ui'
 import MessageBubble from '../../components/MessageBubble.vue'
 import CommonPage from '@/components/page/CommonPage.vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
-import { useUserStore } from '@/store'
 import api, { chatStream } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStore()
-
-const watermarkText = computed(() => {
-  const name = userStore.username
-  return name ? `KeenRobot · ${name}` : 'KeenRobot'
-})
 
 const conversations = ref([])
 
@@ -341,59 +334,47 @@ function handleQuickQuestion(question) {
     <NLayoutContent content-style="height: 100%; overflow: hidden;">
       <CommonPage :show-header="false" :show-footer="false">
         <div class="chat-panel">
-          <NWatermark
-              class="chat-watermark"
-              :content="watermarkText"
-              cross
-              :font-size="14"
-              :line-height="14"
-              :width="200"
-              :height="150"
-              :x-offset="12"
-              :y-offset="80"
-              :rotate="-22"
-          >
-            <div class="chat-thread">
-              <div ref="messagesContainer" class="messages-area cus-scroll-y">
-                <div v-if="messages.length === 0" class="welcome">
-                  <div class="welcome-icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color, #f4511e)" stroke-width="1.5">
-                      <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                  </div>
-                  <h2>你好，有什么可以帮你的？</h2>
-                  <p>我是企业知识库智能助手，可以回答关于公司制度、技术文档、产品信息等问题。</p>
-                  <div class="quick-questions">
-                    <button
-                        v-for="q in [
+          <div class="chat-thread">
+            <div ref="messagesContainer" class="messages-area cus-scroll-y">
+              <div v-if="messages.length === 0" class="welcome">
+                <div class="welcome-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color, #f4511e)" stroke-width="1.5">
+                    <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                <h2>你好，有什么可以帮你的？</h2>
+                <p>我是企业知识库智能助手，可以回答关于公司制度、技术文档、产品信息等问题。</p>
+                <div class="quick-questions">
+                  <button
+                      v-for="q in [
                       '公司的考勤制度是什么？',
                       '产品的核心功能有哪些？',
                       '技术栈使用什么框架？',
                     ]"
-                        :key="q"
-                        class="quick-btn"
-                        @click="handleQuickQuestion(q)"
-                    >
-                      {{ q }}
-                    </button>
-                  </div>
+                      :key="q"
+                      class="quick-btn"
+                      @click="handleQuickQuestion(q)"
+                  >
+                    {{ q }}
+                  </button>
                 </div>
-
-                <template v-else>
-                  <MessageBubble
-                      v-for="(msg, idx) in messages"
-                      :key="idx"
-                      :role="msg.role"
-                      :content="msg.content"
-                      :html="msg.role === 'assistant' ? renderMarkdown(msg.content) : ''"
-                      :isStreaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
-                  />
-                </template>
               </div>
 
-              <div class="input-area">
-                <div class="input-grid">
-                  <div class="input-box">
+              <template v-else>
+                <MessageBubble
+                    v-for="(msg, idx) in messages"
+                    :key="idx"
+                    :role="msg.role"
+                    :content="msg.content"
+                    :html="msg.role === 'assistant' ? renderMarkdown(msg.content) : ''"
+                    :isStreaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
+                />
+              </template>
+            </div>
+
+            <div class="input-area">
+              <div class="input-grid">
+                <div class="input-box">
                   <textarea
                       ref="inputRef"
                       v-model="inputText"
@@ -403,22 +384,21 @@ function handleQuickQuestion(question) {
                       :disabled="isLoading"
                       @keydown="handleKeydown"
                   />
-                    <button
-                        class="send-btn"
-                        type="button"
-                        :disabled="!inputText.trim() || isLoading"
-                        @click="sendMessage()"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-                      </svg>
-                    </button>
-                  </div>
-                  <p class="input-disclaimer">内容由 AI 生成，请仔细甄别 · KEENROBOT助手</p>
+                  <button
+                      class="send-btn"
+                      type="button"
+                      :disabled="!inputText.trim() || isLoading"
+                      @click="sendMessage()"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                    </svg>
+                  </button>
                 </div>
+                <p class="input-disclaimer">内容由 AI 生成，请仔细甄别 · KEENROBOT助手</p>
               </div>
             </div>
-          </NWatermark>
+          </div>
         </div>
       </CommonPage>
     </NLayoutContent>
@@ -525,20 +505,6 @@ function handleQuickQuestion(question) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.chat-watermark {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-watermark :deep(.n-watermark-container) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
 }
 
 .chat-thread {

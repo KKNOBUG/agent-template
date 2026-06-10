@@ -14,7 +14,7 @@ class KnowledgeBaseOut(BaseModel):
     id: str
     name: str
     description: Optional[str]
-    owner_id: str
+    owner_id: int
     is_public: bool
     created_at: datetime
     updated_at: datetime
