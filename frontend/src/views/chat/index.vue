@@ -24,6 +24,12 @@ const showScrollFab = ref(false)
 const scrollFabToBottom = ref(true)
 let currentConvId = null
 let streamController = null
+let loadConversationSeq = 0
+
+function normalizeConversationId(id) {
+  if (id == null || id === '') return null
+  return String(Array.isArray(id) ? id[0] : id)
+}
 
 // 知识库和模型配置
 const knowledgeBases = ref([])
@@ -32,7 +38,7 @@ const selectedKBs = ref([])
 const selectedModelConfig = ref('')
 
 // 从URL获取对话ID
-const conversationId = ref(route.query.conversation || null)
+const conversationId = ref(normalizeConversationId(route.query.conversation))
 
 async function loadConversations() {
   try {
@@ -40,6 +46,29 @@ async function loadConversations() {
   } catch (err) {
     console.error('[Chat] 加载对话列表失败:', err)
     conversations.value = []
+  }
+}
+
+function buildConversationTitle(question) {
+  if (!question) return '新对话'
+  return question.slice(0, 20) + (question.length > 20 ? '...' : '')
+}
+
+function prependConversation(id, title) {
+  const existingIdx = conversations.value.findIndex((c) => c.id === id)
+  if (existingIdx >= 0) {
+    const [conv] = conversations.value.splice(existingIdx, 1)
+    conversations.value.unshift(conv)
+    return
+  }
+  conversations.value.unshift({ id, title: title || '新对话' })
+}
+
+function bumpConversationToTop(id) {
+  const idx = conversations.value.findIndex((c) => c.id === id)
+  if (idx > 0) {
+    const [conv] = conversations.value.splice(idx, 1)
+    conversations.value.unshift(conv)
   }
 }
 
@@ -78,7 +107,7 @@ onMounted(async () => {
 
   // 加载对话
   if (conversationId.value) {
-    await loadConversation(conversationId.value)
+    await switchToConversation(conversationId.value)
   }
 
   await nextTick()
@@ -98,17 +127,18 @@ watch(messages, () => {
   nextTick(updateScrollFabState)
 })
 
-// 监听URL变化
-watch(() => route.query.conversation, async (newId) => {
-  conversationId.value = newId
+async function switchToConversation(newId) {
+  const targetId = normalizeConversationId(newId)
+
   if (streamController) {
     streamController.abort()
     streamController = null
   }
   isLoading.value = false
+  conversationId.value = targetId
 
-  if (newId) {
-    await loadConversation(newId)
+  if (targetId) {
+    await loadConversation(targetId)
   } else {
     currentConvId = null
     messages.value = []
@@ -127,11 +157,26 @@ watch(() => route.query.conversation, async (newId) => {
   }
   await nextTick()
   scrollToBottom()
+}
+
+// 仅处理浏览器前进/后退、新建对话等外部 URL 变化
+watch(() => route.query.conversation, async (newId, oldId) => {
+  if (normalizeConversationId(newId) === normalizeConversationId(oldId)) return
+
+  const targetId = normalizeConversationId(newId)
+  if (targetId === normalizeConversationId(currentConvId)) return
+
+  await switchToConversation(targetId)
 })
 
 async function loadConversation(id) {
-  currentConvId = id
-  const detail = await api.fetchConversation(id)
+  const targetId = normalizeConversationId(id)
+  const seq = ++loadConversationSeq
+
+  const detail = await api.fetchConversation(targetId)
+  if (seq !== loadConversationSeq) return
+
+  currentConvId = targetId
   messages.value = detail.messages.map(m => ({
     role: m.role,
     content: m.content,
@@ -145,15 +190,23 @@ async function loadConversation(id) {
   }
 }
 
-function selectConversation(id) {
-  router.push({ path: '/ai-manage/chat', query: { conversation: id } })
+async function selectConversation(id) {
+  const targetId = normalizeConversationId(id)
+
+  // 点击列表时直接加载，不依赖 router watch（避免 URL 已匹配或 currentConvId 误判导致跳过）
+  await switchToConversation(targetId)
+
+  if (normalizeConversationId(route.query.conversation) !== targetId) {
+    await router.replace({ path: '/ai-manage/chat', query: { conversation: targetId } })
+  }
 }
 
-function startNewChat() {
-  currentConvId = null
-  messages.value = []
-  conversationId.value = null
-  router.push('/ai-manage/chat')
+async function startNewChat() {
+  if (normalizeConversationId(route.query.conversation)) {
+    await router.replace({ path: '/ai-manage/chat' })
+  } else {
+    await switchToConversation(null)
+  }
 }
 
 async function handleDeleteConversation(id) {
@@ -161,8 +214,8 @@ async function handleDeleteConversation(id) {
   try {
     await api.deleteConversation(id)
     await loadConversations()
-    if (currentConvId === id) {
-      startNewChat()
+    if (normalizeConversationId(currentConvId) === normalizeConversationId(id)) {
+      await startNewChat()
     }
   } catch (err) {
     window.$message?.error('删除失败: ' + err.message)
@@ -241,9 +294,11 @@ async function sendMessage() {
         onMeta(data) {
           if (data.conversation_id && !currentConvId) {
             currentConvId = data.conversation_id
+            conversationId.value = data.conversation_id
             // 更新URL，使刷新页面后能保持对话
             router.replace({ path: '/ai-manage/chat', query: { conversation: data.conversation_id } })
-            loadConversations()
+            const firstQuestion = messages.value.find((m) => m.role === 'user')?.content
+            prependConversation(data.conversation_id, buildConversationTitle(firstQuestion))
           }
         },
         onToken(token) {
@@ -253,7 +308,9 @@ async function sendMessage() {
         onDone() {
           isLoading.value = false
           streamController = null
-          loadConversations()
+          if (currentConvId) {
+            bumpConversationToTop(currentConvId)
+          }
         },
         onError() {
           messages.value[assistantIdx].content += '\n\n[连接中断，请重试]'
