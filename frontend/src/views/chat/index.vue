@@ -137,8 +137,8 @@ async function loadConversation(id) {
     content: m.content,
   }))
   // 恢复知识库和模型配置选择
-  if (detail.kb_ids) {
-    selectedKBs.value = detail.kb_ids
+  if (detail.knowledge_ids) {
+    selectedKBs.value = detail.knowledge_ids
   }
   if (detail.model_config_id) {
     selectedModelConfig.value = detail.model_config_id

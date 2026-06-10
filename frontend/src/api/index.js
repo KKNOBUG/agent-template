@@ -1,4 +1,5 @@
 import { request, getToken } from '@/utils'
+import { handleUnauthorized, isUnauthorizedCode } from '@/utils/http/auth'
 
 const API_BASE = import.meta.env.VITE_BASE_API || '/api'
 
@@ -60,6 +61,10 @@ export async function uploadDocument(kbId, file) {
   }
 
   const body = await res.json()
+  if (isUnauthorizedCode(body?.code)) {
+    await handleUnauthorized()
+    throw new Error(body?.message || '登录已过期')
+  }
   if (body?.code !== '000000' || body?.status !== 'success') {
     throw new Error(body?.message || '上传失败')
   }
@@ -69,7 +74,7 @@ export async function uploadDocument(kbId, file) {
 export function chatStream(
     question,
     conversationId,
-    kbIds = [],
+    knowledgeIds = [],
     modelConfigId = null,
     { onToken, onMeta, onDone, onError }
 ) {
@@ -85,15 +90,28 @@ export function chatStream(
     body: JSON.stringify({
       question,
       conversation_id: conversationId,
-      kb_ids: kbIds,
+      knowledge_ids: knowledgeIds,
       model_config_id: modelConfigId,
     }),
     signal: controller.signal,
   })
       .then(async (response) => {
+        const contentType = response.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const body = await response.json().catch(() => ({}))
+          if (isUnauthorizedCode(body?.code)) {
+            await handleUnauthorized()
+            throw new Error(body?.message || '登录已过期')
+          }
+          throw new Error(body?.message || parseErrorDetail(body.detail) || '请求失败')
+        }
+
         if (!response.ok) {
           const error = await response.json().catch(() => ({}))
-          throw new Error(parseErrorDetail(error.detail) || '请求失败')
+          if (isUnauthorizedCode(error?.code)) {
+            await handleUnauthorized()
+          }
+          throw new Error(parseErrorDetail(error.detail) || error.message || '请求失败')
         }
 
         const reader = response.body.getReader()

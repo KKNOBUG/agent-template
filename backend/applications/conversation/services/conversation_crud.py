@@ -6,7 +6,6 @@
 @Module  : conversation_crud.py
 @DateTime: 2026/6/9
 """
-import json
 from typing import AsyncIterator, List, Optional
 
 from backend.applications.base.rag.chain import rag_stream
@@ -19,6 +18,8 @@ from backend.applications.conversation.schemas.conversation_schema import (
     ConversationUpdate,
     MessageCreate,
     MessageUpdate,
+    encode_knowledge_ids,
+    decode_knowledge_ids,
 )
 from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
 from backend.applications.model_config.models.model_config_model import ModelConfig
@@ -95,18 +96,23 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         self,
         conversation: Conversation,
         *,
-        kb_ids: Optional[List[str]] = None,
+        knowledge_ids: Optional[List[str]] = None,
         model_config_id: Optional[str] = None,
         title: Optional[str] = None,
     ) -> None:
         """更新对话元数据"""
-        if kb_ids is not None:
-            conversation.kb_ids = json.dumps(kb_ids) if kb_ids else None
+        if knowledge_ids is not None:
+            conversation.knowledge_ids = encode_knowledge_ids(knowledge_ids)
         if model_config_id is not None:
             conversation.model_config_id = model_config_id
         if title is not None:
             conversation.title = title
         await conversation.save()
+
+    @staticmethod
+    def get_knowledge_ids(conversation: Conversation) -> List[str]:
+        """从对话记录解析知识库 ID 列表"""
+        return decode_knowledge_ids(conversation.knowledge_ids) or []
 
     async def list_conversations(self, user: User) -> List[Conversation]:
         """获取当前用户的对话列表"""
@@ -132,10 +138,10 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         """清空当前用户的所有对话"""
         await self.clear_by_user(user.id)
 
-    async def _validate_kb_access(self, kb_ids: List[str], user: User) -> None:
+    async def _validate_kb_access(self, knowledge_ids: List[str], user: User) -> None:
         """校验知识库访问权限"""
         kb_crud = KnowledgeBaseCrud()
-        for kb_id in kb_ids:
+        for kb_id in knowledge_ids:
             kb = await kb_crud.get_by_id(kb_id)
             if not kb:
                 raise NotFoundException(message=f"知识库 {kb_id} 不存在")
@@ -156,13 +162,13 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             user, req.model_config_id
         )
 
-        kb_ids = req.kb_ids or []
-        if kb_ids:
-            await self._validate_kb_access(kb_ids, user)
+        knowledge_ids = req.knowledge_ids or self.get_knowledge_ids(conv)
+        if knowledge_ids:
+            await self._validate_kb_access(knowledge_ids, user)
 
         await self.update_meta(
             conv,
-            kb_ids=kb_ids,
+            knowledge_ids=knowledge_ids,
             model_config_id=model_config.id if model_config else None,
         )
 
@@ -175,27 +181,44 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
 
         await self.message.add_message(conv.id, "user", req.question)
 
-        return conv, model_config, chat_history, kb_ids
+        return conv, model_config, chat_history, knowledge_ids
 
     async def stream_response(
         self,
         question: str,
-        kb_ids: List[str],
+        knowledge_ids: List[str],
         chat_history: List[dict],
         model_config: Optional[ModelConfig],
     ) -> AsyncIterator[str]:
         """流式生成聊天回复"""
-        model_name = model_config.model_name if model_config else "deepseek-chat"
-        temperature = model_config.temperature if model_config else 0.7
-        max_tokens = model_config.max_tokens if model_config else 4096
+        if model_config:
+            llm_params = {
+                "model_name": model_config.model_name,
+                "temperature": model_config.temperature,
+                "max_tokens": model_config.max_tokens,
+                "top_p": model_config.top_p,
+                "system_prompt": model_config.system_prompt,
+                "top_k": model_config.top_k,
+                "score_threshold": model_config.score_threshold,
+                "max_history_rounds": model_config.max_history_rounds,
+            }
+        else:
+            llm_params = {
+                "model_name": "deepseek-chat",
+                "temperature": 0.7,
+                "max_tokens": 4096,
+                "top_p": 0.95,
+                "system_prompt": None,
+                "top_k": 5,
+                "score_threshold": 0.0,
+                "max_history_rounds": 10,
+            }
 
         async for token in rag_stream(
             question=question,
-            kb_ids=kb_ids,
+            knowledge_ids=knowledge_ids,
             chat_history=chat_history,
-            model_name=model_name,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            **llm_params,
         ):
             yield token
 

@@ -19,7 +19,7 @@ async def chat_stream(
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     # 1. 准备阶段：同步操作，阻塞等待
-    conv, model_config, chat_history, kb_ids = await conversation_crud.prepare_for_chat(
+    conv, model_config, chat_history, knowledge_ids = await conversation_crud.prepare_for_chat(
         req, current_user
     )
     conversation_id = conv.id
@@ -40,7 +40,7 @@ async def chat_stream(
             # rag_stream() 调用 llm.stream_chat()
             # llm.stream_chat() 使用 httpx.AsyncClient().stream() 接收 LLM 流式响应
             async for token in conversation_crud.stream_response(
-                    req.question, kb_ids, chat_history, model_config
+                    req.question, knowledge_ids, chat_history, model_config
             ):
                 full_response += token
                 yield {

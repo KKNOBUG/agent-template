@@ -25,10 +25,14 @@ async def init_model_configs():
     await ModelConfig.create(
         user_id=admin_user.id,
         name="默认配置",
+        description="企业知识库默认问答配置",
         model_name="deepseek-chat",
         temperature=0.7,
-        max_tokens=2048,
-        top_p=0.80,
+        max_tokens=4096,
+        top_p=0.95,
+        top_k=5,
+        score_threshold=0.0,
+        max_history_rounds=10,
         is_default=True,
     )
     LOGGER.info("默认模型配置初始化完成")

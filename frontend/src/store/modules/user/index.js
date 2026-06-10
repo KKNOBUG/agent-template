@@ -46,7 +46,14 @@ export const useUserStore = defineStore('user', {
         return error
       }
     },
-    async logout() {
+    async logout({ callApi = false } = {}) {
+      if (callApi) {
+        try {
+          await api.logout()
+        } catch {
+          // Token 已失效时退出接口可能失败，仍执行本地清理
+        }
+      }
       const { resetTags } = useTagsStore()
       const { resetPermission } = usePermissionStore()
       removeToken()

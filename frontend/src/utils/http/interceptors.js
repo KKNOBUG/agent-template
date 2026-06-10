@@ -1,6 +1,6 @@
 import { getToken } from '@/utils'
-import { useUserStore } from '@/store'
 import { resolveResError } from './helpers'
+import { handleUnauthorized, isUnauthorizedCode } from './auth'
 
 export function reqResolve(config) {
   if (config.noNeedToken) return config
@@ -15,7 +15,7 @@ export function reqReject(error) {
   return Promise.reject(error)
 }
 
-export function resResolve(response) {
+export async function resResolve(response) {
   const { data, status, statusText } = response
 
   if (!data) {
@@ -32,7 +32,12 @@ export function resResolve(response) {
   if (!isSuccess) {
     const code = data.code ?? status
     const message = resolveResError(code, data.message ?? statusText ?? '请求失败')
-    window.$message?.error(message, { keepAliveOnHover: true })
+    if (isUnauthorizedCode(code)) {
+      window.$message?.warning(message, { keepAliveOnHover: true })
+      await handleUnauthorized()
+    } else {
+      window.$message?.error(message, { keepAliveOnHover: true })
+    }
     return Promise.reject({ code, message, error: data || response })
   }
 
@@ -47,18 +52,15 @@ export async function resReject(error) {
   }
 
   const { data, status } = error.response
-  const responseCode = data?.code
-  if (responseCode === 401 || responseCode === '400401' || String(responseCode) === '401') {
-    try {
-      const userStore = useUserStore()
-      await userStore.logout()
-    } catch (err) {
-      console.error('resReject logout error', err)
-    }
+  const responseCode = data?.code ?? status
+  const message = resolveResError(responseCode, data?.message ?? error.message ?? '请求失败')
+
+  if (isUnauthorizedCode(responseCode)) {
+    window.$message?.warning(message, { keepAliveOnHover: true })
+    await handleUnauthorized()
+  } else {
+    window.$message?.error(message, { keepAliveOnHover: true })
   }
 
-  const code = data?.code ?? status
-  const message = resolveResError(code, data?.message ?? error.message ?? '请求失败')
-  window.$message?.error(message, { keepAliveOnHover: true })
-  return Promise.reject({ code, message, error: error.response?.data || error.response })
+  return Promise.reject({ code: responseCode, message, error: error.response?.data || error.response })
 }

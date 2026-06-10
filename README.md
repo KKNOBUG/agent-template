@@ -227,7 +227,7 @@ from backend.configure.config import PROJECT_CONFIG, TORTOISE_ORM
 {
   "question": "公司的年假政策是什么？",
   "conversation_id": "可选，续聊时传入",
-  "kb_ids": ["知识库ID"],
+  "knowledge_ids": ["知识库ID"],
   "model_config_id": "可选"
 }
 ```
@@ -275,7 +275,7 @@ SSE 事件类型：
 ```
 用户提问
   → Embedding 向量化问题
-  → ChromaDB 检索相关知识块（按 kb_ids 过滤）
+  → ChromaDB 检索相关知识块（按 knowledge_ids 过滤）
   → 拼接上下文 + 历史消息
   → 调用 LLM 流式生成回答
   → 保存 assistant 消息到数据库

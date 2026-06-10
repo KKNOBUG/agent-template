@@ -8,11 +8,13 @@
 """
 from __future__ import annotations
 
+import traceback
 from typing import Iterable
 
-from fastapi import Request
+import jwt
+from fastapi import HTTPException, Request
 
-from backend.configure import PROJECT_CONFIG
+from backend.configure import LOGGER, PROJECT_CONFIG
 from backend.core.responses import UnauthorizedResponse
 from backend.services import AuthControl
 
@@ -97,11 +99,22 @@ async def auth_middleware(request: Request, call_next):
     if not token:
         return UnauthorizedResponse(message="请求服务鉴权失败, 请携带有效 Token 进行访问")
 
-    # 对( RBAC发生在依赖权限中)进行认证
     try:
         await AuthControl.is_authed(token)
-    except Exception as e:
-        # 统一以未认证返回，避免调试模式下泄露异常细节
-        return UnauthorizedResponse(message="请求服务鉴权已过期, 请重新登录获取有效 Token 后进行访问")
+    except HTTPException as exc:
+        message = str(exc.detail) if exc.detail else "请求服务鉴权失败"
+        return UnauthorizedResponse(message=message)
+    except jwt.ExpiredSignatureError:
+        return UnauthorizedResponse(
+            message="请求服务鉴权已过期, 请重新登录获取有效 Token 后进行访问"
+        )
+    except jwt.DecodeError:
+        return UnauthorizedResponse(message="请求服务鉴权失败, 请携带有效 Token 进行访问")
+    except jwt.InvalidTokenError:
+        return UnauthorizedResponse(message="请求服务鉴权失败, Token 无效, 请重新登录")
+    except Exception as exc:
+        LOGGER.error(
+            f"鉴权中间件异常: {exc}\n{traceback.format_exc()}"
+        )
+        return UnauthorizedResponse(message="请求服务鉴权失败, 服务暂时不可用, 请稍后重试")
     return await call_next(request)
-

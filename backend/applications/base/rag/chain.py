@@ -28,7 +28,7 @@ def is_irrelevant_question(question: str) -> bool:
         r'^你能做什么$', r'^介绍一下自己$', r'^介绍.*自己',
         r'^你会什么$', r'^你有.*功能',
     ]
-    
+
     question_stripped = question.strip()
     for pattern in irrelevant_patterns:
         if re.match(pattern, question_stripped, re.IGNORECASE):
@@ -70,9 +70,14 @@ def format_context_from_results(results: List[dict]) -> str:
     return "\n\n".join(parts)
 
 
-def _retrieve_context(question: str, kb_ids: List[str]) -> tuple[List[dict], str]:
+def _retrieve_context(
+        question: str,
+        knowledge_ids: List[str],
+        top_k: int = 5,
+        score_threshold: float = 0.0,
+) -> tuple[List[dict], str]:
     """向量检索，未配置 Embedding 或无知识库时返回空结果"""
-    if not kb_ids:
+    if not knowledge_ids:
         return [], ""
 
     if not is_embedding_configured():
@@ -80,42 +85,87 @@ def _retrieve_context(question: str, kb_ids: List[str]) -> tuple[List[dict], str
         return [], ""
 
     query_embedding = get_single_embedding(question)
-    search_results = chroma_store.search(kb_ids, query_embedding, top_k=5)
+    search_results = chroma_store.search(knowledge_ids, query_embedding, top_k=top_k)
+    if score_threshold > 0:
+        search_results = [
+            item for item in search_results
+            if item.get("score", 0) >= score_threshold
+        ]
     context = format_context_from_results(search_results)
     return search_results, context
 
 
+def _resolve_system_prompt(
+        system_prompt: str = None,
+        context: str = "",
+        has_context: bool = True,
+) -> str:
+    """解析系统提示词，支持自定义模板或全局默认模板"""
+    if not has_context:
+        return """你是企业知识库智能助手。请用你的专业知识回答用户的问题。
+
+要求：
+1. 回答要准确、简洁、专业
+2. 如果涉及到企业制度、员工手册等内容，请说明这是基于通用知识的回答
+3. 建议用户查阅公司正式文件获取最准确的信息"""
+
+    prompt_template = (system_prompt or "").strip() or RAG_SYSTEM_PROMPT
+    if "{context}" in prompt_template:
+        return prompt_template.format(context=context)
+    return f"{prompt_template}\n\n## 参考资料\n{context}"
+
+
 def rag_query(
-    question: str,
-    kb_ids: List[str],
-    chat_history: List[Dict[str, str]] = None,
-    model_name: str = "qwen-turbo",
-    temperature: float = 0.7,
-    max_tokens: int = 2048,
+        question: str,
+        knowledge_ids: List[str],
+        chat_history: List[Dict[str, str]] = None,
+        model_name: str = "qwen-turbo",
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+        top_p: float = 0.95,
+        system_prompt: str = None,
+        top_k: int = 5,
+        score_threshold: float = 0.0,
+        max_history_rounds: int = 10,
 ) -> str:
     """
     同步RAG问答
 
     Args:
         question: 用户问题
-        kb_ids: 知识库ID列表
+        knowledge_ids: 知识库ID列表
         chat_history: 历史对话
         model_name: 模型名称
         temperature: 温度参数
         max_tokens: 最大token数
+        top_p: top-p采样
+        system_prompt: 自定义系统提示词
+        top_k: 检索返回条数
+        score_threshold: 检索相似度阈值
+        max_history_rounds: 保留历史对话轮数
 
     Returns:
         模型回答
     """
     # 1. 向量检索
-    search_results, context = _retrieve_context(question, kb_ids)
+    search_results, context = _retrieve_context(
+        question, knowledge_ids, top_k=top_k, score_threshold=score_threshold
+    )
+    has_context = bool(search_results) and len(context.strip()) > 0
+    resolved_prompt = _resolve_system_prompt(
+        system_prompt=system_prompt,
+        context=context if has_context else "（无特定参考资料，使用通用知识）",
+        has_context=has_context,
+    )
 
     # 2. 构建消息
     messages = format_messages(
-        system_prompt=RAG_SYSTEM_PROMPT,
+        system_prompt=resolved_prompt,
         user_question=question,
         context=context,
         chat_history=chat_history,
+        max_history_rounds=max_history_rounds,
+        format_context=False,
     )
 
     # 3. 调用LLM
@@ -124,29 +174,40 @@ def rag_query(
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
+        top_p=top_p,
     )
 
     return response
 
 
 async def rag_stream(
-    question: str,
-    kb_ids: List[str],
-    chat_history: List[Dict[str, str]] = None,
-    model_name: str = "qwen-turbo",
-    temperature: float = 0.7,
-    max_tokens: int = 2048,
+        question: str,
+        knowledge_ids: List[str],
+        chat_history: List[Dict[str, str]] = None,
+        model_name: str = "qwen-turbo",
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+        top_p: float = 0.95,
+        system_prompt: str = None,
+        top_k: int = 5,
+        score_threshold: float = 0.0,
+        max_history_rounds: int = 10,
 ) -> AsyncIterator[str]:
     """
     流式RAG问答
 
     Args:
         question: 用户问题
-        kb_ids: 知识库ID列表
+        knowledge_ids: 知识库ID列表
         chat_history: 历史对话
         model_name: 模型名称
         temperature: 温度参数
         max_tokens: 最大token数
+        top_p: top-p采样
+        system_prompt: 自定义系统提示词
+        top_k: 检索返回条数
+        score_threshold: 检索相似度阈值
+        max_history_rounds: 保留历史对话轮数
 
     Yields:
         模型回答的文本片段
@@ -166,39 +227,41 @@ async def rag_stream(
             else:
                 await asyncio.sleep(0.02)
         return
-    
+
     # 1. 向量检索
-    search_results, context = _retrieve_context(question, kb_ids)
-    
+    search_results, context = _retrieve_context(
+        question, knowledge_ids, top_k=top_k, score_threshold=score_threshold
+    )
+
     # 2. 检查检索结果
     has_context = bool(search_results) and len(context.strip()) > 0
-    
-    if not has_context:
-        print(f"[rag_stream] 警告：未检索到相关内容，使用通用模式回答")
-        # 使用通用模式，不限制只根据参考资料回答
-        system_prompt = """你是企业知识库智能助手。请用你的专业知识回答用户的问题。
-        
-要求：
-1. 回答要准确、简洁、专业
-2. 如果涉及到企业制度、员工手册等内容，请说明这是基于通用知识的回答
-3. 建议用户查阅公司正式文件获取最准确的信息"""
-    else:
+    if has_context:
         print(f"[rag_stream] 检索到 {len(search_results)} 条相关内容")
-        system_prompt = RAG_SYSTEM_PROMPT
+    else:
+        print(f"[rag_stream] 警告：未检索到相关内容，使用通用模式回答")
+
+    resolved_prompt = _resolve_system_prompt(
+        system_prompt=system_prompt,
+        context=context if has_context else "（无特定参考资料，使用通用知识）",
+        has_context=has_context,
+    )
 
     # 3. 构建消息
     messages = format_messages(
-        system_prompt=system_prompt,
+        system_prompt=resolved_prompt,
         user_question=question,
-        context=context if has_context else "（无特定参考资料，使用通用知识）",
+        context=context,
         chat_history=chat_history,
+        max_history_rounds=max_history_rounds,
+        format_context=False,
     )
 
     # 4. 流式调用LLM
     llm = QwenLLM(model=model_name)
     async for chunk in llm.stream_chat(
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
     ):
         yield chunk

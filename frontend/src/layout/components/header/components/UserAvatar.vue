@@ -39,7 +39,7 @@ function handleSelect(key) {
       type: 'warning',
       content: t('header.text_logout_confirm'),
       confirm() {
-        userStore.logout()
+        userStore.logout({ callApi: true })
         window.$message?.success(t('header.text_logout_success'))
       },
     })

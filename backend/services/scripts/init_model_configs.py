@@ -21,18 +21,26 @@ from backend.applications.model_config.models.model_config_model import ModelCon
 DEEPSEEK_CONFIGS = [
     {
         "name": "DeepSeek Chat",
+        "description": "通用企业知识库问答",
         "model_name": "deepseek-chat",
         "temperature": 0.7,
         "max_tokens": 4096,
         "top_p": 0.95,
+        "top_k": 5,
+        "score_threshold": 0.0,
+        "max_history_rounds": 10,
         "is_default": True,
     },
     {
         "name": "DeepSeek Reasoner",
+        "description": "复杂推理与深度分析",
         "model_name": "deepseek-reasoner",
         "temperature": 0.7,
         "max_tokens": 4096,
         "top_p": 0.95,
+        "top_k": 5,
+        "score_threshold": 0.0,
+        "max_history_rounds": 10,
         "is_default": False,
     },
 ]

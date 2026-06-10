@@ -11,7 +11,10 @@ import traceback
 from fastapi import APIRouter, Depends
 
 from backend.applications.conversation.dependencies import get_conversation_crud
-from backend.applications.conversation.schemas.conversation_schema import ConversationOut
+from backend.applications.conversation.schemas.conversation_schema import (
+    ConversationDetail,
+    ConversationOut,
+)
 from backend.applications.conversation.services.conversation_crud import ConversationCrud
 from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
@@ -49,8 +52,7 @@ async def get_conversation(
         conv = await conversation_crud.get_with_messages(conversation_id, current_user.id)
         if not conv:
             return NotFoundResponse(message="对话不存在")
-        data = await conv.to_dict()
-        data["messages"] = [await msg.to_dict() for msg in conv.messages]
+        data = ConversationDetail.model_validate(conv).model_dump(by_alias=True)
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
