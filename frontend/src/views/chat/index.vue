@@ -1,7 +1,7 @@
 <script setup>
 defineOptions({ name: 'Chat' })
 
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { NButton, NLayout, NLayoutContent, NLayoutSider } from 'naive-ui'
@@ -20,6 +20,8 @@ const inputText = ref('')
 const isLoading = ref(false)
 const messagesContainer = ref(null)
 const inputRef = ref(null)
+const showScrollFab = ref(false)
+const scrollFabToBottom = ref(true)
 let currentConvId = null
 let streamController = null
 
@@ -78,6 +80,22 @@ onMounted(async () => {
   if (conversationId.value) {
     await loadConversation(conversationId.value)
   }
+
+  await nextTick()
+  if (messagesContainer.value) {
+    messagesContainer.value.addEventListener('scroll', onMessagesScroll, { passive: true })
+  }
+  updateScrollFabState()
+})
+
+onUnmounted(() => {
+  if (messagesContainer.value) {
+    messagesContainer.value.removeEventListener('scroll', onMessagesScroll)
+  }
+})
+
+watch(messages, () => {
+  nextTick(updateScrollFabState)
 })
 
 // 监听URL变化
@@ -151,33 +169,60 @@ async function handleDeleteConversation(id) {
   }
 }
 
+const SCROLL_EDGE_THRESHOLD = 48
+
 function scrollToBottom() {
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
 }
 
-async function sendMessage(questionOverride = null) {
-  // 确保 questionOverride 是字符串（防止传入事件对象）
-  const overrideStr = typeof questionOverride === 'string' ? questionOverride : null
-  const question = (overrideStr || inputText.value).trim()
+function scrollToTop() {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = 0
+  }
+}
 
-  console.log('[Chat.sendMessage] 开始执行')
-  console.log('[Chat.sendMessage] questionOverride:', questionOverride)
-  console.log('[Chat.sendMessage] overrideStr:', overrideStr)
-  console.log('[Chat.sendMessage] inputText.value:', inputText.value)
-  console.log('[Chat.sendMessage] 最终 question:', question)
-  console.log('[Chat.sendMessage] isLoading:', isLoading.value)
-
-  if (!question || isLoading.value) {
-    console.log('[Chat.sendMessage] 退出：question为空或isLoading为true')
+function updateScrollFabState() {
+  const el = messagesContainer.value
+  if (!el || messages.value.length === 0) {
+    showScrollFab.value = false
     return
   }
 
-  console.log('[Chat.sendMessage] 清空输入框')
-  inputText.value = ''
+  const { scrollTop, scrollHeight, clientHeight } = el
+  const canScroll = scrollHeight - clientHeight > SCROLL_EDGE_THRESHOLD
+  if (!canScroll) {
+    showScrollFab.value = false
+    return
+  }
 
-  console.log('[Chat.sendMessage] 添加用户消息')
+  const atBottom = scrollHeight - scrollTop - clientHeight < SCROLL_EDGE_THRESHOLD
+  showScrollFab.value = true
+  scrollFabToBottom.value = !atBottom
+}
+
+function onMessagesScroll() {
+  updateScrollFabState()
+}
+
+function handleScrollFabClick() {
+  if (scrollFabToBottom.value) {
+    scrollToBottom()
+  } else {
+    scrollToTop()
+  }
+  nextTick(updateScrollFabState)
+}
+
+async function sendMessage() {
+  const question = inputText.value.trim()
+
+  if (!question || isLoading.value) {
+    return
+  }
+
+  inputText.value = ''
   messages.value.push({ role: 'user', content: question })
   messages.value.push({ role: 'assistant', content: '' })
   isLoading.value = true
@@ -187,12 +232,6 @@ async function sendMessage(questionOverride = null) {
 
   const assistantIdx = messages.value.length - 1
 
-  console.log('[Chat.sendMessage] 调用 chatStream')
-  console.log('[Chat.sendMessage] 参数 - question:', question)
-  console.log('[Chat.sendMessage] 参数 - currentConvId:', currentConvId)
-  console.log('[Chat.sendMessage] 参数 - selectedKBs:', selectedKBs.value)
-  console.log('[Chat.sendMessage] 参数 - selectedModelConfig:', selectedModelConfig.value)
-
   streamController = chatStream(
       question,
       currentConvId,
@@ -200,7 +239,6 @@ async function sendMessage(questionOverride = null) {
       selectedModelConfig.value,
       {
         onMeta(data) {
-          console.log('[Chat.sendMessage] onMeta 回调:', data)
           if (data.conversation_id && !currentConvId) {
             currentConvId = data.conversation_id
             // 更新URL，使刷新页面后能保持对话
@@ -213,21 +251,17 @@ async function sendMessage(questionOverride = null) {
           nextTick(scrollToBottom)
         },
         onDone() {
-          console.log('[Chat.sendMessage] onDone 回调')
           isLoading.value = false
           streamController = null
           loadConversations()
         },
-        onError(err) {
-          console.error('[Chat.sendMessage] onError 回调:', err)
+        onError() {
           messages.value[assistantIdx].content += '\n\n[连接中断，请重试]'
           isLoading.value = false
           streamController = null
         },
       }
   )
-
-  console.log('[Chat.sendMessage] chatStream 调用完成')
 }
 
 function handleKeydown(e) {
@@ -242,46 +276,6 @@ function renderMarkdown(text) {
   return marked.parse(text, { breaks: true })
 }
 
-function handleQuickQuestion(question) {
-  console.log('[Chat] 快速问题被点击:', question)
-  console.log('[Chat] 问题类型:', typeof question)
-  console.log('[Chat] 当前 isLoading:', isLoading.value)
-  console.log('[Chat] 当前 currentConvId:', currentConvId)
-  console.log('[Chat] 当前 selectedKBs:', selectedKBs.value)
-  console.log('[Chat] 当前 selectedModelConfig:', selectedModelConfig.value)
-
-  // 确保 question 是字符串
-  if (typeof question !== 'string') {
-    console.error('[Chat] 错误：question 不是字符串', question)
-    return
-  }
-
-  // 检查知识库是否已选择
-  if (!selectedKBs.value || selectedKBs.value.length === 0) {
-    console.warn('[Chat] 警告：未选择知识库，将使用默认检索')
-    // 如果有可用知识库，自动选择第一个
-    if (knowledgeBases.value.length > 0) {
-      selectedKBs.value = [knowledgeBases.value[0].id]
-      console.log('[Chat] 自动选择知识库:', selectedKBs.value[0])
-    } else {
-      console.error('[Chat] 错误：没有可用的知识库')
-      alert('请先创建或选择知识库')
-      return
-    }
-  }
-
-  // 检查模型配置
-  if (!selectedModelConfig.value) {
-    console.warn('[Chat] 警告：未选择模型配置，使用默认')
-    if (modelConfigs.value.length > 0) {
-      selectedModelConfig.value = modelConfigs.value.find(c => c.is_default)?.id || modelConfigs.value[0].id
-      console.log('[Chat] 使用默认模型配置:', selectedModelConfig.value)
-    }
-  }
-
-  // 直接调用 sendMessage，传入问题字符串
-  sendMessage(question)
-}
 </script>
 
 <template>
@@ -356,20 +350,6 @@ function handleQuickQuestion(question) {
                     智能助手，很高兴见到你！
                   </p>
                 </div>
-                <div class="quick-questions">
-                  <button
-                      v-for="q in [
-                      '公司的考勤制度是什么？',
-                      '产品的核心功能有哪些？',
-                      '技术栈使用什么框架？',
-                    ]"
-                      :key="q"
-                      class="quick-btn"
-                      @click="handleQuickQuestion(q)"
-                  >
-                    {{ q }}
-                  </button>
-                </div>
               </div>
 
               <template v-else>
@@ -385,6 +365,19 @@ function handleQuickQuestion(question) {
             </div>
 
             <div class="input-area">
+              <button
+                  v-show="showScrollFab"
+                  type="button"
+                  class="scroll-fab"
+                  :title="scrollFabToBottom ? '跳到底部' : '返回顶部'"
+                  @click="handleScrollFabClick"
+              >
+                <TheIcon
+                    :icon="scrollFabToBottom ? 'material-symbols:keyboard-arrow-down' : 'material-symbols:keyboard-arrow-up'"
+                    :size="18"
+                    color="var(--primary-color)"
+                />
+              </button>
               <div class="input-grid">
                 <div class="input-box">
                   <textarea
@@ -577,7 +570,6 @@ function handleQuickQuestion(question) {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  gap: 24px;
   box-sizing: border-box;
 }
 
@@ -601,35 +593,39 @@ function handleQuickQuestion(question) {
   color: var(--primary-color, #f4511e);
 }
 
-.quick-questions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 20px;
-}
-
-.quick-btn {
-  padding: 8px 16px;
-  border: 1px solid var(--n-border-color);
-  border-radius: 20px;
-  font-size: 13px;
-  color: var(--n-text-color-3);
-  background: transparent;
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.quick-btn:hover {
-  border-color: var(--primary-color-hover, #f76b3c);
-  color: var(--primary-color, #f4511e);
-  background: rgba(244, 81, 30, 0.06);
-}
-
 .input-area {
+  position: relative;
   flex-shrink: 0;
   margin-top: auto;
-  padding: 8px 0 1px;
+  padding: 14px 0 1px;
+}
+
+.scroll-fab {
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--chat-input-border);
+  border-radius: 50%;
+  background-color: var(--chat-input-surface);
+  box-shadow: var(--chat-input-shadow);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.scroll-fab:hover {
+  border-color: var(--primary-color, #f4511e);
+}
+
+.scroll-fab:active {
+  transform: translate(-50%, -50%) scale(0.96);
 }
 
 .input-grid {
