@@ -10,28 +10,30 @@ from tortoise import fields
 
 from backend.applications.base.services.scaffold import (
     ScaffoldModel,
-    MaintainMixin,
-    TimestampMixin,
     StateModel,
-    unique_identify
+    TimestampMixin,
+    MaintainMixin,
+    unique_identify,
 )
 
 
-class Conversation(ScaffoldModel, MaintainMixin, TimestampMixin, StateModel):
-    """对话会话"""
-    id = fields.CharField(default=unique_identify, max_length=64, pk=True)
+class Conversation(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
+    """对话会话模型"""
+    id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="对话ID")
     user = fields.ForeignKeyField(
         "models.User",
         related_name="conversations",
-        on_delete=fields.CASCADE
+        on_delete=fields.CASCADE,
+        description="所属用户",
     )
-    title = fields.CharField(default="新对话", max_length=255)
-    knowledge_ids = fields.TextField(null=True, description="知识关联ID列表")
+    title = fields.CharField(default="新对话", max_length=255, description="对话标题")
+    knowledge_ids = fields.TextField(null=True, description="所属知识库")
     model_config = fields.ForeignKeyField(
         "models.ModelConfig",
         related_name="conversations",
         null=True,
         on_delete=fields.SET_NULL,
+        description="所属模型配置",
     )
     messages: fields.ReverseRelation["Message"]
 
@@ -39,17 +41,17 @@ class Conversation(ScaffoldModel, MaintainMixin, TimestampMixin, StateModel):
         table = "keenrobot_conversations"
 
 
-class Message(ScaffoldModel, MaintainMixin, TimestampMixin, StateModel):
-    """聊天消息"""
-
-    id = fields.IntField(pk=True)
+class Message(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
+    """聊天消息模型"""
+    id = fields.IntField(pk=True, description="消息ID")
     conversation = fields.ForeignKeyField(
         "models.Conversation",
         related_name="messages",
-        on_delete=fields.CASCADE
+        on_delete=fields.CASCADE,
+        description="所属对话",
     )
-    role = fields.CharField(max_length=20)
-    content = fields.TextField()
+    role = fields.CharField(max_length=20, description="消息角色")
+    content = fields.TextField(description="消息内容")
 
     class Meta:
         table = "keenrobot_messages"
