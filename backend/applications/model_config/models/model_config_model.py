@@ -28,9 +28,9 @@ class ModelConfig(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
     )
     name = fields.CharField(max_length=64, default="默认配置", description="配置名称")
     model_name = fields.CharField(max_length=64, default="deepseek-chat", description="模型名称")
-    temperature = fields.FloatField(default=0.7, description="温度")
-    max_tokens = fields.IntField(default=2048, description="最大Token数")
-    top_p = fields.FloatField(default=0.95, description="Top P")
+    temperature = fields.FloatField(default=0.7, description="温度(控制AI回答随机性)")
+    max_tokens = fields.IntField(default=2048, description="限制单次回答的最大输出Token数")
+    top_p = fields.FloatField(default=0.95, description="核采样参数")
     is_default = fields.BooleanField(default=True, description="是否默认配置")
 
     class Meta:
