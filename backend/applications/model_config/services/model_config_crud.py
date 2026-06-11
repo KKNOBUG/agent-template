@@ -22,12 +22,6 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
     def __init__(self):
         super().__init__(model=ModelConfig)
 
-    async def _resolve_user_id(self, current_user: User) -> int:
-        if current_user.is_superuser:
-            return current_user.id
-        admin = await User.get_or_none(username="admin")
-        return admin.id if admin else current_user.id
-
     async def list_by_user(self, user_id: int) -> List[ModelConfig]:
         """获取用户的模型配置列表"""
         return await self.model.filter(user_id=user_id).order_by(
@@ -68,9 +62,8 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         )
 
     async def list_configs(self, current_user: User) -> List[ModelConfig]:
-        """获取当前用户可见的模型配置列表"""
-        user_id = await self._resolve_user_id(current_user)
-        return await self.list_by_user(user_id)
+        """获取当前用户自己的模型配置列表"""
+        return await self.list_by_user(current_user.id)
 
     async def create_config(
         self, current_user: User, data: ModelConfigCreate
@@ -121,12 +114,16 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         await config.save()
 
     async def get_default(self, current_user: User) -> ModelConfig:
-        """获取当前用户的默认模型配置"""
-        user_id = await self._resolve_user_id(current_user)
-        config = await self.get_default_config(user_id)
-        if not config:
-            raise NotFoundException(message="没有找到模型配置")
-        return config
+        """获取默认模型配置：优先当前用户，其次管理员默认"""
+        config = await self.get_default_config(current_user.id)
+        if config:
+            return config
+        admin = await User.get_or_none(username="admin")
+        if admin:
+            config = await self.get_default_config(admin.id)
+            if config:
+                return config
+        raise NotFoundException(message="没有找到模型配置")
 
     async def resolve_for_chat(
         self,

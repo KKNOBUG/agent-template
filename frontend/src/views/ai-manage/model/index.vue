@@ -1,6 +1,7 @@
 <script setup>
 import { computed, h, onMounted, ref } from 'vue'
 import {
+  NAlert,
   NButton,
   NForm,
   NFormItem,
@@ -241,6 +242,9 @@ const columns = computed(() => [
 
 <template>
   <CommonPage show-footer title="模型管理">
+    <NAlert type="info" :bordered="false" class="model-config-tip">
+      此处管理当前登录用户自己的模型配置。聊天时优先使用您的指定/默认配置；若尚未创建，将自动降级使用管理员（admin）的默认配置。
+    </NAlert>
     <CrudTable
         ref="$table"
         v-model:query-items="queryItems"
@@ -373,6 +377,10 @@ const columns = computed(() => [
 </template>
 
 <style scoped>
+.model-config-tip {
+  margin-bottom: 12px;
+}
+
 .w-full {
   width: 100%;
 }

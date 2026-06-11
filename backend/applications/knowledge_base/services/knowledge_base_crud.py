@@ -135,6 +135,11 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         return hashlib.sha256(content).hexdigest()
 
     @staticmethod
+    def _can_replace_on_reupload(status: DocumentStatus) -> bool:
+        """失败或处理中卡住时，允许同内容重传覆盖"""
+        return status in (DocumentStatus.FAILED, DocumentStatus.PROCESSING)
+
+    @staticmethod
     def _resolve_chunk_config(kb: KnowledgeBase) -> Tuple[int, int]:
         """解析知识库分块参数，未配置时回退全局默认值"""
         chunk_size = kb.chunk_size or PROJECT_CONFIG.CHUNK_SIZE
@@ -361,7 +366,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
 
         existing_doc = await self.document.get_by_content_hash(kb_id, content_hash)
         if existing_doc:
-            if existing_doc.status == DocumentStatus.FAILED:
+            if self._can_replace_on_reupload(existing_doc.status):
                 await self._purge_document(existing_doc)
             else:
                 raise ParameterException(

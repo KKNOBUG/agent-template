@@ -249,7 +249,7 @@ from backend.configure.config import PROJECT_CONFIG, TORTOISE_ORM
 {
   "question": "公司的年假政策是什么？",
   "conversation_id": "可选，续聊时传入",
-  "knowledge_ids": ["知识库ID"],
+  "knowledge_base_ids": ["知识库ID"],
   "model_config_id": "可选"
 }
 ```
@@ -292,6 +292,8 @@ SSE 事件类型：
 | DELETE | `/api/model-configs/{config_id}` | 删除配置 | 是 |
 | POST | `/api/model-configs/{config_id}/default` | 设为默认 | 是 |
 
+列表仅返回**当前登录用户**自己创建的配置。聊天时优先使用用户指定/默认配置；若用户尚无配置，后端自动降级使用管理员（`admin`）的默认配置。
+
 ### 审计日志 `/api/base/audit`
 
 | 方法 | 路径 | 说明 | 认证 |
@@ -319,7 +321,7 @@ SSE 事件类型：
 ```
 用户提问
   → Embedding 向量化问题
-  → ChromaDB 检索相关知识块（按 knowledge_ids 过滤）
+  → ChromaDB 检索相关知识块（按 knowledge_base_ids 过滤）
   → 拼接上下文 + 历史消息
   → 调用 LLM 流式生成回答
   → 保存 assistant 消息到数据库
@@ -331,6 +333,10 @@ PDF 上传处理流程：
 上传 PDF → PyMuPDF 解析 → 文本分块（500 字 / 100 重叠）
   → Embedding 向量化 → 写入 ChromaDB + 元数据入库
 ```
+
+文档 `status`：`processing`（处理中）/ `completed`（成功）/ `failed`（失败）。同内容重传时，`failed` 或卡住的 `processing` 记录会被清理后覆盖；`completed` 仍拒绝重复上传。
+
+对话/知识库等业务表使用 `state=1` 软删除，用于统计与留档，不提供前台恢复入口。
 
 ## 工具脚本
 
@@ -557,7 +563,7 @@ DATABASE_NAME=rag_system
 1. 点击左侧对话列表中的某条对话
 2. 或从 URL `?conversation=xxx` 进入时调用
 3. 加载该对话的所有历史消息
-4. 恢复知识库选择 (`knowledge_ids`) 和模型配置 (`model_config_id`)
+4. 恢复知识库选择 (`knowledge_base_ids`) 和模型配置 (`model_config_id`)
 5. 消息渲染为气泡形式展示
 
 ---
@@ -597,7 +603,7 @@ DATABASE_NAME=rag_system
 {
   "question": "公司的年假政策是什么？",
   "conversation_id": "conv_abc123",
-  "knowledge_ids": ["kb_xyz789"],
+  "knowledge_base_ids": ["kb_xyz789"],
   "model_config_id": "cfg_def456"
 }
 ```

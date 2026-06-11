@@ -152,7 +152,7 @@ app/
 │   ├── chat.py          # SSE 流式聊天，编排 RAG + 持久化
 │   ├── history.py       # 对话 CRUD
 │   ├── knowledge_base.py # 知识库/文档/分块 CRUD + 入库流水线
-│   └── model_config.py  # 模型参数 CRUD；非 admin 读 admin 配置
+│   └── model_config.py  # 模型参数 CRUD；列表按当前用户过滤，聊天降级 admin 默认
 └── rag/
     ├── chain.py         # RAG 核心：检索 → 拼 Prompt → 调 LLM
     ├── llm.py           # OpenAI 兼容 LLM 封装（DeepSeek/千问等）
@@ -166,7 +166,7 @@ app/
 1. **分层清晰**：API 层只做鉴权/编排，RAG 逻辑集中在 `chain.py`，外部服务封装在 `llm.py` / `embeddings.py`。
 2. **OpenAI 兼容接口**：LLM 与 Embedding 均通过 `/chat/completions`、`/embeddings` 调用，便于切换 DeepSeek、千问、硅基流动等。
 3. **双存储**：MySQL 存结构化元数据与原文分块；Chroma 存向量，检索时按 `kb_id` 过滤。
-4. **多租户轻量隔离**：知识库按 `owner_id` + `is_public` 控制；普通用户共享 admin 的模型配置。
+4. **多租户轻量隔离**：知识库按 `user_id` + `is_public` 控制；模型配置列表按当前用户过滤，聊天时无个人配置则降级 admin 默认。
 5. **降级友好**：Embedding 未配置时，跳过检索，退化为纯 LLM 对话。
 
 ### 4.2 数据模型关系
@@ -410,7 +410,8 @@ MYSQL_HOST=...
 | `EMBEDDING_API_KEY 未设置` | 未配硅基流动 Key | 配 Key 或取消选知识库 |
 | 选了知识库但回答不基于文档 | Chroma 无向量 / 未重新上传文档 | 看后端 `[Chroma]` 日志，重新上传 PDF |
 | 上传 PDF 超时 | 同步处理大文件 | 改异步任务队列 |
-| 非 admin 模型不生效 | 设计为读 admin 配置 | 用 admin 账号改 ModelConfig |
+| 模型配置列表为空但聊天仍可用 | 聊天降级使用 admin 默认配置 | 在「模型管理」为当前用户创建配置，或由 admin 维护默认配置 |
+| 同 PDF 无法重传 | 已有 completed 记录占唯一约束 | 删除旧文档后再传；failed/processing 可直接同内容覆盖 |
 
 ---
 
@@ -426,4 +427,13 @@ ChatBoot 是一个**结构清晰、适合二次开发的企业 RAG 问答底座*
 
 ---
 
-*文档版本：2026-06-01 | 基于 ChatBoot v2.0.0 代码分析*
+## 十二、数据与运维约定（2026-06 更新）
+
+- **数据库迁移**：`backend/migrations/models/` 下按序执行 `aerich upgrade`（init → 字段重命名 → JSON → 去 MaintainMixin 等）。
+- **软删除**：`Conversation` / `KnowledgeBase` / `Message` 等 `state=1` 表示禁用/删除，用于统计留档，不提供应用内恢复。
+- **文档删除**：`Document` / `DocumentChunk` 为物理删除；向量与本地文件同步清理。
+- **RAG 参数**：全链路统一使用 `knowledge_base_ids`（Chroma 元数据仍为 `kb_id`）。
+
+---
+
+*文档版本：2026-06-11 | 基于 KeenRobot 当前代码*
