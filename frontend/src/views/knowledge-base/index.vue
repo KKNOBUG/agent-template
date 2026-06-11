@@ -272,8 +272,8 @@ function shortModelName(model) {
                     向量 {{ shortModelName(doc.embedding_model) }}
                   </span>
                 </div>
-                <p v-if="doc.status === 'failed' && doc.error_msg" class="doc-error">
-                  {{ doc.error_msg }}
+                <p v-if="doc.status === 'failed' && doc.error_message" class="doc-error">
+                  {{ doc.error_message }}
                 </p>
               </div>
               <div class="doc-actions">

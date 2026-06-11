@@ -37,7 +37,8 @@ export default {
   fetchDocuments: (kbId) => request.get(`/knowledge-bases/${kbId}/documents`).then(payload),
   retryDocument: (kbId, docId) => request.post(`/knowledge-bases/${kbId}/documents/${docId}/retry`).then(payload),
   deleteDocument: (kbId, docId) => request.delete(`/knowledge-bases/${kbId}/documents/${docId}`).then(payload),
-  fetchChunks: (kbId, docId) => request.get(`/knowledge-bases/${kbId}/chunks?doc_id=${docId}`).then(payload),
+  fetchChunks: (kbId, docId) =>
+      request.get(`/knowledge-bases/${kbId}/chunks?document_id=${docId}`).then(payload),
 
   fetchModelConfigs: () => request.get('/model-configs/').then(payload),
   createModelConfig: (data) => request.post('/model-configs/', data).then(payload),

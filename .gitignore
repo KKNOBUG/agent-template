@@ -22,7 +22,9 @@ __pycache__
 backend/.idea/
 backend/.venv/
 backend/.env
-backend/output/logs/*.log
+backend/core/chroma_db/chroma.sqlite3
+backend/output/logs/*
+backend/output/upload/*
 
 frontend/.idea/
 frontend/node_modules/

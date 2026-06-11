@@ -208,7 +208,7 @@ async def delete_document(
 @knowledge.get("/{kb_id}/chunks", summary="查询知识块列表")
 async def list_chunks(
         kb_id: str,
-        doc_id: str = None,
+        document_id: str = None,
         page: int = 1,
         page_size: int = 50,
         current_user: User = DependAuth,
@@ -216,7 +216,7 @@ async def list_chunks(
 ):
     try:
         chunks = await kb_crud.list_chunks(
-            kb_id, current_user, doc_id, page, page_size
+            kb_id, current_user, document_id, page, page_size
         )
         data = [chunk.model_dump() for chunk in chunks]
         return SuccessResponse(data=data, total=len(data))

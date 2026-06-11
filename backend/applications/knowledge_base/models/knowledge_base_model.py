@@ -3,7 +3,7 @@
 @Author  : yangkai
 @Email   : 807440781@qq.com
 @Project : KeenRobot
-@Module  : conversation_model.py
+@Module  : knowledge_base_model.py
 @DateTime: 2025/4/28 18:07
 """
 from tortoise import fields
@@ -22,7 +22,7 @@ class KnowledgeBase(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
     id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="知识库ID")
     knowledge_name = fields.CharField(max_length=128, description="知识库名称")
     description = fields.TextField(null=True, description="知识库描述")
-    owner = fields.ForeignKeyField(
+    user = fields.ForeignKeyField(
         "models.User",
         related_name="knowledge_bases",
         on_delete=fields.CASCADE,
@@ -41,7 +41,7 @@ class KnowledgeBase(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
 class Document(ScaffoldModel, TimestampMixin):
     """文档模型"""
     id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="文档ID")
-    kb = fields.ForeignKeyField(
+    knowledge_base = fields.ForeignKeyField(
         "models.KnowledgeBase",
         related_name="documents",
         on_delete=fields.CASCADE,
@@ -55,21 +55,21 @@ class Document(ScaffoldModel, TimestampMixin):
     embedding_model = fields.CharField(max_length=64, null=True, description="向量化模型")
     chunk_count = fields.IntField(default=0, description="分块数量")
     status = fields.CharField(max_length=32, default="processing", description="处理状态")
-    error_msg = fields.TextField(null=True, description="错误信息")
+    error_message = fields.TextField(null=True, description="错误信息")
 
-    chunks: fields.ReverseRelation["DocumentChunk"]
+    document_chunks: fields.ReverseRelation["DocumentChunk"]
 
     class Meta:
         table = "keenrobot_documents"
-        unique_together = (("kb_id", "content_hash"),)
+        unique_together = (("knowledge_base_id", "content_hash"),)
 
 
 class DocumentChunk(ScaffoldModel, TimestampMixin):
     """文档分块模型"""
     id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="分块ID")
-    doc = fields.ForeignKeyField(
+    document = fields.ForeignKeyField(
         "models.Document",
-        related_name="chunks",
+        related_name="document_chunks",
         on_delete=fields.CASCADE,
         description="所属文档",
     )

@@ -13,7 +13,6 @@ from typing import List, Optional, Tuple
 
 from fastapi import UploadFile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from pydantic import BaseModel
 from tortoise.exceptions import IntegrityError
 from tortoise.expressions import Q
 
@@ -28,9 +27,12 @@ from backend.applications.knowledge_base.models.knowledge_base_model import (
     KnowledgeBase,
 )
 from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
+    DocumentChunkCreate,
     DocumentChunkOut,
     DocumentChunkUpdate,
+    DocumentCreate,
     DocumentOut,
+    DocumentUpdate,
     KnowledgeBaseCreate,
     KnowledgeBaseOut,
 )
@@ -44,56 +46,44 @@ from backend.core.exceptions import (
 )
 
 
-class _DocumentCreate(BaseModel):
-    kb_id: str
-    filename: str
-    file_type: str
-    file_path: str
-    file_size: int
-    content_hash: str
-    embedding_model: Optional[str] = None
-    status: str = "processing"
-
-
-class _DocumentUpdate(BaseModel):
-    status: Optional[str] = None
-    chunk_count: Optional[int] = None
-    error_msg: Optional[str] = None
-
-
-class _DocumentChunkCreate(BaseModel):
-    doc_id: str
-    content: str
-    chunk_index: int
-    page_number: Optional[int] = None
-
-
-class DocumentCrud(ScaffoldCrud[Document, _DocumentCreate, _DocumentUpdate]):
+class DocumentCrud(ScaffoldCrud[Document, DocumentCreate, DocumentUpdate]):
     def __init__(self):
         super().__init__(model=Document)
 
-    async def get_by_kb(self, kb_id: str, doc_id: str) -> Optional[Document]:
+    async def get_by_knowledge_base(
+        self, knowledge_base_id: str, document_id: str
+    ) -> Optional[Document]:
         """根据知识库 ID 和文档 ID 获取文档"""
-        return await self.model.get_or_none(id=doc_id, kb_id=kb_id)
+        return await self.model.get_or_none(
+            id=document_id, knowledge_base_id=knowledge_base_id
+        )
 
-    async def get_by_content_hash(self, kb_id: str, content_hash: str) -> Optional[Document]:
+    async def get_by_content_hash(
+        self, knowledge_base_id: str, content_hash: str
+    ) -> Optional[Document]:
         """根据知识库 ID 和内容哈希获取文档"""
-        return await self.model.get_or_none(kb_id=kb_id, content_hash=content_hash)
+        return await self.model.get_or_none(
+            knowledge_base_id=knowledge_base_id, content_hash=content_hash
+        )
 
-    async def list_by_kb(self, kb_id: str) -> List[Document]:
+    async def list_by_knowledge_base(self, knowledge_base_id: str) -> List[Document]:
         """获取知识库下的文档列表"""
-        return await self.model.filter(kb_id=kb_id).order_by("-created_time")
+        return await self.model.filter(
+            knowledge_base_id=knowledge_base_id
+        ).order_by("-created_time")
 
-    async def count_by_kb(self, kb_id: str) -> int:
+    async def count_by_knowledge_base(self, knowledge_base_id: str) -> int:
         """统计知识库下的文档数量"""
-        return await self.model.filter(kb_id=kb_id).count()
+        return await self.model.filter(knowledge_base_id=knowledge_base_id).count()
 
-    async def create_for_kb(self, kb_id: str, **kwargs) -> Document:
+    async def create_for_knowledge_base(
+        self, knowledge_base_id: str, **kwargs
+    ) -> Document:
         """在指定知识库下创建文档"""
-        return await self.model.create(kb_id=kb_id, **kwargs)
+        return await self.model.create(knowledge_base_id=knowledge_base_id, **kwargs)
 
 
-class DocumentChunkCrud(ScaffoldCrud[DocumentChunk, _DocumentChunkCreate, DocumentChunkUpdate]):
+class DocumentChunkCrud(ScaffoldCrud[DocumentChunk, DocumentChunkCreate, DocumentChunkUpdate]):
     def __init__(self):
         super().__init__(model=DocumentChunk)
 
@@ -101,31 +91,35 @@ class DocumentChunkCrud(ScaffoldCrud[DocumentChunk, _DocumentChunkCreate, Docume
         """批量创建文档分块"""
         await self.model.bulk_create(chunks)
 
-    async def list_by_kb(
+    async def list_by_knowledge_base(
         self,
-        kb_id: str,
-        doc_id: str = None,
+        knowledge_base_id: str,
+        document_id: str = None,
         page: int = 1,
         page_size: int = 50,
     ) -> List[DocumentChunk]:
         """获取知识库下的文档分块列表"""
-        qs = self.model.filter(doc__kb_id=kb_id)
-        if doc_id:
-            qs = qs.filter(doc_id=doc_id)
+        qs = self.model.filter(document__knowledge_base_id=knowledge_base_id)
+        if document_id:
+            qs = qs.filter(document_id=document_id)
         offset = (page - 1) * page_size
         return await qs.order_by("chunk_index").offset(offset).limit(page_size)
 
-    async def get_by_kb(self, kb_id: str, chunk_id: str) -> Optional[DocumentChunk]:
+    async def get_by_knowledge_base(
+        self, knowledge_base_id: str, chunk_id: str
+    ) -> Optional[DocumentChunk]:
         """根据知识库 ID 和分块 ID 获取文档分块"""
         return (
-            await self.model.filter(id=chunk_id, doc__kb_id=kb_id)
-            .prefetch_related("doc")
+            await self.model.filter(
+                id=chunk_id, document__knowledge_base_id=knowledge_base_id
+            )
+            .prefetch_related("document")
             .first()
         )
 
-    async def count_by_doc(self, doc_id: str) -> int:
+    async def count_by_document(self, document_id: str) -> int:
         """统计文档下的分块数量"""
-        return await self.model.filter(doc_id=doc_id).count()
+        return await self.model.filter(document_id=document_id).count()
 
 
 class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, KnowledgeBaseCreate]):
@@ -162,7 +156,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
     ) -> List[KnowledgeBase]:
         """获取用户可见的知识库列表"""
         qs = self.model.filter(
-            Q(owner_id=user_id) | Q(is_public=True),
+            Q(user_id=user_id) | Q(is_public=True),
             state__not=1,
         )
         if search:
@@ -173,19 +167,19 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
 
     def check_access(self, kb: KnowledgeBase, user: User) -> None:
         """校验知识库访问权限"""
-        if not kb.is_public and kb.owner_id != user.id and not user.is_superuser:
+        if not kb.is_public and kb.user_id != user.id and not user.is_superuser:
             raise NoPermissionException(message="没有权限访问该知识库")
 
     def check_write(self, kb: KnowledgeBase, user: User) -> None:
         """校验知识库写权限"""
-        if kb.owner_id != user.id and not user.is_superuser:
+        if kb.user_id != user.id and not user.is_superuser:
             raise NoPermissionException(message="没有权限操作该知识库")
 
     @staticmethod
     def _to_document_out(doc: Document) -> DocumentOut:
         return DocumentOut(
             id=doc.id,
-            kb_id=doc.kb_id,
+            knowledge_base_id=doc.knowledge_base_id,
             filename=doc.filename,
             file_type=doc.file_type,
             file_size=doc.file_size,
@@ -193,7 +187,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             embedding_model=doc.embedding_model,
             chunk_count=doc.chunk_count,
             status=doc.status,
-            error_msg=doc.error_msg,
+            error_message=doc.error_message,
             created_time=doc.created_time,
             updated_time=doc.updated_time,
         )
@@ -202,7 +196,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
     def _to_chunk_out(chunk: DocumentChunk) -> DocumentChunkOut:
         return DocumentChunkOut(
             id=chunk.id,
-            doc_id=chunk.doc_id,
+            document_id=chunk.document_id,
             content=chunk.content,
             chunk_index=chunk.chunk_index,
             page_number=chunk.page_number,
@@ -211,12 +205,12 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         )
 
     async def _to_out(self, kb: KnowledgeBase) -> KnowledgeBaseOut:
-        doc_count = await self.document.count_by_kb(kb.id)
+        doc_count = await self.document.count_by_knowledge_base(kb.id)
         return KnowledgeBaseOut(
             id=kb.id,
             knowledge_name=kb.knowledge_name,
             description=kb.description,
-            owner_id=kb.owner_id,
+            user_id=kb.user_id,
             is_public=kb.is_public,
             chunk_size=kb.chunk_size,
             chunk_overlap=kb.chunk_overlap,
@@ -230,7 +224,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         """创建知识库"""
         operator = self._operator_name(user)
         kb = await self.model.create(
-            owner_id=user.id,
+            user_id=user.id,
             knowledge_name=data.knowledge_name,
             description=data.description,
             is_public=data.is_public,
@@ -285,10 +279,10 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
     async def _process_document(self, kb: KnowledgeBase, doc: Document) -> None:
         """解析文档、分块并写入向量库"""
         chroma_store.delete_by_doc(doc.id)
-        await DocumentChunk.filter(doc_id=doc.id).delete()
+        await DocumentChunk.filter(document_id=doc.id).delete()
 
         doc.status = "processing"
-        doc.error_msg = None
+        doc.error_message = None
         doc.chunk_count = 0
         doc.embedding_model = PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
         await doc.save()
@@ -311,7 +305,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                     chunk_models.append(
                         DocumentChunk(
                             id=str(uuid.uuid4()),
-                            doc_id=doc.id,
+                            document_id=doc.id,
                             content=chunk_text,
                             chunk_index=chunk_index,
                             page_number=page_number,
@@ -345,7 +339,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             await doc.save()
         except Exception as e:
             doc.status = "failed"
-            doc.error_msg = str(e)
+            doc.error_message = str(e)
             await doc.save()
             raise DataBaseStorageException(message=f"文档处理失败: {str(e)}")
 
@@ -382,8 +376,8 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             f.write(content)
 
         try:
-            doc = await self.document.create_for_kb(
-                kb_id=kb_id,
+            doc = await self.document.create_for_knowledge_base(
+                kb_id,
                 filename=file.filename,
                 file_type=file_type,
                 file_path=str(file_path),
@@ -407,7 +401,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             raise NotFoundException(message="知识库不存在")
         self.check_write(kb, user)
 
-        doc = await self.document.get_by_kb(kb_id, doc_id)
+        doc = await self.document.get_by_knowledge_base(kb_id, doc_id)
         if not doc:
             raise NotFoundException(message="文档不存在")
         if doc.status != "failed":
@@ -431,7 +425,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         if not kb:
             raise NotFoundException(message="知识库不存在")
         self.check_access(kb, user)
-        docs = await self.document.list_by_kb(kb_id)
+        docs = await self.document.list_by_knowledge_base(kb_id)
         return [self._to_document_out(doc) for doc in docs]
 
     async def delete_document(self, kb_id: str, doc_id: str, user: User) -> None:
@@ -440,7 +434,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         if not kb:
             raise NotFoundException(message="知识库不存在")
         self.check_write(kb, user)
-        doc = await self.document.get_by_kb(kb_id, doc_id)
+        doc = await self.document.get_by_knowledge_base(kb_id, doc_id)
         if not doc:
             raise NotFoundException(message="文档不存在")
         chroma_store.delete_by_doc(doc_id)
@@ -452,7 +446,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         self,
         kb_id: str,
         user: User,
-        doc_id: str = None,
+        document_id: str = None,
         page: int = 1,
         page_size: int = 50,
     ) -> List[DocumentChunkOut]:
@@ -461,7 +455,9 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         if not kb:
             raise NotFoundException(message="知识库不存在")
         self.check_access(kb, user)
-        chunks = await self.chunk.list_by_kb(kb_id, doc_id, page, page_size)
+        chunks = await self.chunk.list_by_knowledge_base(
+            kb_id, document_id, page, page_size
+        )
         return [self._to_chunk_out(chunk) for chunk in chunks]
 
     async def get_chunk(self, kb_id: str, chunk_id: str, user: User) -> DocumentChunkOut:
@@ -470,7 +466,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         if not kb:
             raise NotFoundException(message="知识库不存在")
         self.check_access(kb, user)
-        chunk = await self.chunk.get_by_kb(kb_id, chunk_id)
+        chunk = await self.chunk.get_by_knowledge_base(kb_id, chunk_id)
         if not chunk:
             raise NotFoundException(message="知识块不存在")
         return self._to_chunk_out(chunk)
@@ -483,7 +479,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         if not kb:
             raise NotFoundException(message="知识库不存在")
         self.check_write(kb, user)
-        chunk = await self.chunk.get_by_kb(kb_id, chunk_id)
+        chunk = await self.chunk.get_by_knowledge_base(kb_id, chunk_id)
         if not chunk:
             raise NotFoundException(message="知识块不存在")
 
@@ -491,13 +487,13 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         embedding = get_embedding([data.content])[0]
         if chunk.chroma_id:
             chroma_store.delete_by_vector_id(chunk.chroma_id)
-        filename = chunk.doc.filename if chunk.doc else None
-        embedding_model = chunk.doc.embedding_model if chunk.doc else None
+        filename = chunk.document.filename if chunk.document else None
+        embedding_model = chunk.document.embedding_model if chunk.document else None
         chroma_ids = chroma_store.upsert_chunks(
             kb_id,
             [
                 {
-                    "doc_id": chunk.doc_id,
+                    "doc_id": chunk.document_id,
                     "chunk_id": chunk.id,
                     "content": chunk.content,
                     "embedding": embedding,
@@ -517,14 +513,14 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         if not kb:
             raise NotFoundException(message="知识库不存在")
         self.check_write(kb, user)
-        chunk = await self.chunk.get_by_kb(kb_id, chunk_id)
+        chunk = await self.chunk.get_by_knowledge_base(kb_id, chunk_id)
         if not chunk:
             raise NotFoundException(message="知识块不存在")
         if chunk.chroma_id:
             chroma_store.delete_by_vector_id(chunk.chroma_id)
-        doc_id = chunk.doc_id
+        document_id = chunk.document_id
         await chunk.delete()
-        doc = await self.document.get_by_kb(kb_id, doc_id)
+        doc = await self.document.get_by_knowledge_base(kb_id, document_id)
         if doc:
-            doc.chunk_count = await self.chunk.count_by_doc(doc_id)
+            doc.chunk_count = await self.chunk.count_by_document(document_id)
             await doc.save()

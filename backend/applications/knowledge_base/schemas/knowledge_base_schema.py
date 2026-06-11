@@ -45,7 +45,7 @@ class KnowledgeBaseOut(BaseModel):
     id: str = Field(..., description="知识库ID")
     knowledge_name: str = Field(..., description="知识库名称")
     description: Optional[str] = Field(default=None, description="知识库描述")
-    owner_id: int = Field(..., description="所属用户ID")
+    user_id: int = Field(..., description="所属用户ID")
     is_public: bool = Field(..., description="是否公开")
     chunk_size: Optional[int] = Field(default=None, description="分块大小(字符数)")
     chunk_overlap: Optional[int] = Field(default=None, description="分块重叠(字符数)")
@@ -57,9 +57,36 @@ class KnowledgeBaseOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DocumentCreate(BaseModel):
+    """文档创建（CRUD 层）"""
+    knowledge_base_id: str = Field(..., description="所属知识库ID")
+    filename: str = Field(..., description="文件名")
+    file_type: str = Field(..., description="文件类型")
+    file_path: str = Field(..., description="文件路径")
+    file_size: int = Field(..., description="文件大小(字节)")
+    content_hash: str = Field(..., description="文件内容SHA256")
+    embedding_model: Optional[str] = Field(default=None, description="向量化模型")
+    status: str = Field(default="processing", description="处理状态")
+
+
+class DocumentUpdate(BaseModel):
+    """文档更新（CRUD 层）"""
+    status: Optional[str] = Field(default=None, description="处理状态")
+    chunk_count: Optional[int] = Field(default=None, description="分块数量")
+    error_message: Optional[str] = Field(default=None, description="错误信息")
+
+
+class DocumentChunkCreate(BaseModel):
+    """文档分块创建（CRUD 层）"""
+    document_id: str = Field(..., description="所属文档ID")
+    content: str = Field(..., description="分块内容")
+    chunk_index: int = Field(..., description="分块序号")
+    page_number: Optional[int] = Field(default=None, description="PDF页码(从1开始)")
+
+
 class DocumentOut(BaseModel):
     id: str = Field(..., description="文档ID")
-    kb_id: str = Field(..., description="所属知识库ID")
+    knowledge_base_id: str = Field(..., description="所属知识库ID")
     filename: str = Field(..., description="文件名")
     file_type: str = Field(..., description="文件类型")
     file_size: int = Field(..., description="文件大小(字节)")
@@ -67,7 +94,7 @@ class DocumentOut(BaseModel):
     embedding_model: Optional[str] = Field(default=None, description="向量化模型")
     chunk_count: int = Field(..., description="分块数量")
     status: str = Field(..., description="处理状态")
-    error_msg: Optional[str] = Field(default=None, description="错误信息")
+    error_message: Optional[str] = Field(default=None, description="错误信息")
     created_time: datetime = Field(..., description="创建时间")
     updated_time: datetime = Field(..., description="更新时间")
 
@@ -76,7 +103,7 @@ class DocumentOut(BaseModel):
 
 class DocumentChunkOut(BaseModel):
     id: str = Field(..., description="分块ID")
-    doc_id: str = Field(..., description="所属文档ID")
+    document_id: str = Field(..., description="所属文档ID")
     content: str = Field(..., description="分块内容")
     chunk_index: int = Field(..., description="分块序号")
     page_number: Optional[int] = Field(default=None, description="PDF页码(从1开始)")
