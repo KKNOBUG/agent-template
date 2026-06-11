@@ -16,9 +16,6 @@ from backend.configure import PROJECT_CONFIG
 
 # DashScope 常见误配：/api/v1 并非 OpenAI 兼容 embeddings 路径
 DASHSCOPE_COMPATIBLE_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-DASHSCOPE_NATIVE_URL = (
-    "https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding"
-)
 
 
 def is_embedding_configured() -> bool:
@@ -86,10 +83,7 @@ def get_embedding(texts: List[str], model: str = None) -> List[List[float]]:
     """
     api_key = _resolve_api_key()
     if not api_key:
-        raise ValueError(
-            "EMBEDDING_API_KEY 未设置，请在 .env 中配置向量 Key"
-            "（EMBEDDING_API_KEY / SILICONFLOW_API_KEY）"
-        )
+        raise ValueError("EMBEDDING_API_KEY 未设置，请在 .env 中配置 Embedding API Key")
 
     model = model or PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
     sanitized = [t for t in texts if t and str(t).strip()]

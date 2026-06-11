@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from urllib.parse import quote_plus
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
@@ -92,18 +92,28 @@ class ProjectConfig(BaseSettings):
 
     # RAG / LLM / Embedding
     CHROMA_COLLECTION: str = "knowledge_base"
-    LLM_API_KEY: str = Field(default="", validation_alias=AliasChoices("LLM_API_KEY", "DASHSCOPE_API_KEY"))
-    LLM_BASE_URL: str = Field(default="https://api.deepseek.com/v1", validation_alias=AliasChoices("LLM_BASE_URL", "DASHSCOPE_BASE_URL"))
-    DEFAULT_LLM_MODEL: str = "deepseek-chat"
-    # EMBEDDING_API_KEY: str = Field(default="", validation_alias=AliasChoices("EMBEDDING_API_KEY", "SILICONFLOW_API_KEY"))
-    # EMBEDDING_BASE_URL: str = Field(default="https://api.siliconflow.cn/v1", validation_alias=AliasChoices("EMBEDDING_BASE_URL", "SILICONFLOW_BASE_URL"))
-    # DEFAULT_EMBEDDING_MODEL: str = "BAAI/bge-large-zh-v1.5"
-    EMBEDDING_API_KEY: str = Field(default="sk-29254682e10d41f698768aa077e78d0d", validation_alias=AliasChoices("EMBEDDING_API_KEY", "SILICONFLOW_API_KEY"))
-    EMBEDDING_BASE_URL: str = Field(default="https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding", validation_alias=AliasChoices("EMBEDDING_BASE_URL", "SILICONFLOW_BASE_URL"))
-    DEFAULT_EMBEDDING_MODEL: str = "text-embedding-v4"
-    CHUNK_SIZE: int = 500
-    CHUNK_OVERLAP: int = 100
-    RETRIEVAL_TOP_K: int = 5
+    LLM_API_KEY: str = Field(default="", description="LLM API Key")
+    LLM_BASE_URL: str = Field(default="", description="LLM API Base URL")
+    DEFAULT_LLM_MODEL: str = Field(default="", description="Default LLM Model")
+    EMBEDDING_API_KEY: str = Field(default="", description="Embedding API Key")
+    EMBEDDING_BASE_URL: str = Field(default="", description="Embedding API Base URL")
+    DEFAULT_EMBEDDING_MODEL: str = Field(default="", description="Default Embedding Model")
+
+    # RAG 分块 / 检索全局默认值（.env 可选；不写则用下列 default）
+    # - CHUNK_SIZE / CHUNK_OVERLAP：KnowledgeBase.chunk_* 为空时回退；仅影响新上传/重处理文档
+    # - RETRIEVAL_TOP_K：chroma_store.search(top_k=None) 时兜底；聊天链路以 ModelConfig.top_k 为准
+    CHUNK_SIZE: int = Field(
+        default=500,
+        description="分块大小(字符数)；知识库未配置时回退，建议 200-2000",
+    )
+    CHUNK_OVERLAP: int = Field(
+        default=100,
+        description="分块重叠(字符数)；知识库未配置时回退，应 ≤ CHUNK_SIZE/2",
+    )
+    RETRIEVAL_TOP_K: int = Field(
+        default=5,
+        description="向量检索条数兜底；聊天以 ModelConfig.top_k(1-20) 为准",
+    )
 
     # # 允许访问的源（域名）列表
     CORS_ORIGINS: List[str] = [
