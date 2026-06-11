@@ -105,12 +105,12 @@ def format_context_from_results(results: List[dict]) -> str:
 
 def _retrieve_context(
         question: str,
-        knowledge_ids: List[str],
+        knowledge_base_ids: List[str],
         top_k: int = 5,
         score_threshold: float = 0.0,
 ) -> tuple[List[dict], str]:
     """向量检索，未配置 Embedding 或无知识库时返回空结果"""
-    if not knowledge_ids:
+    if not knowledge_base_ids:
         return [], ""
 
     if not is_embedding_configured():
@@ -118,7 +118,9 @@ def _retrieve_context(
         return [], ""
 
     query_embedding = get_single_embedding(question)
-    search_results = chroma_store.search(knowledge_ids, query_embedding, top_k=top_k)
+    search_results = chroma_store.search(
+        knowledge_base_ids, query_embedding, top_k=top_k
+    )
     search_results = _filter_embedding_model_consistency(search_results)
     if score_threshold > 0:
         search_results = [
@@ -151,7 +153,7 @@ def _resolve_system_prompt(
 
 def rag_query(
         question: str,
-        knowledge_ids: List[str],
+        knowledge_base_ids: List[str],
         chat_history: List[Dict[str, str]] = None,
         model_name: str = "qwen-turbo",
         temperature: float = 0.7,
@@ -167,7 +169,7 @@ def rag_query(
 
     Args:
         question: 用户问题
-        knowledge_ids: 知识库ID列表
+        knowledge_base_ids: 知识库ID列表
         chat_history: 历史对话
         model_name: 模型名称
         temperature: 温度参数
@@ -183,7 +185,10 @@ def rag_query(
     """
     # 1. 向量检索
     search_results, context = _retrieve_context(
-        question, knowledge_ids, top_k=top_k, score_threshold=score_threshold
+        question,
+        knowledge_base_ids,
+        top_k=top_k,
+        score_threshold=score_threshold,
     )
     has_context = bool(search_results) and len(context.strip()) > 0
     resolved_prompt = _resolve_system_prompt(
@@ -216,7 +221,7 @@ def rag_query(
 
 async def rag_stream(
         question: str,
-        knowledge_ids: List[str],
+        knowledge_base_ids: List[str],
         chat_history: List[Dict[str, str]] = None,
         model_name: str = "qwen-turbo",
         temperature: float = 0.7,
@@ -232,7 +237,7 @@ async def rag_stream(
 
     Args:
         question: 用户问题
-        knowledge_ids: 知识库ID列表
+        knowledge_base_ids: 知识库ID列表
         chat_history: 历史对话
         model_name: 模型名称
         temperature: 温度参数
@@ -264,7 +269,10 @@ async def rag_stream(
 
     # 1. 向量检索
     search_results, context = _retrieve_context(
-        question, knowledge_ids, top_k=top_k, score_threshold=score_threshold
+        question,
+        knowledge_base_ids,
+        top_k=top_k,
+        score_threshold=score_threshold,
     )
 
     # 2. 检查检索结果

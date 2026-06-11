@@ -38,6 +38,7 @@ from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
 )
 from backend.applications.user.models.user_model import User
 from backend.configure import PROJECT_CONFIG
+from backend.enums.chat_session_enum import DocumentStatus
 from backend.core.exceptions import (
     DataBaseStorageException,
     NoPermissionException,
@@ -129,11 +130,6 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         self.chunk = DocumentChunkCrud()
 
     @staticmethod
-    def _operator_name(user: User) -> str:
-        """截取用户名以适配 MaintainMixin 字段长度"""
-        return (user.username or "")[:16]
-
-    @staticmethod
     def _content_hash(content: bytes) -> str:
         """计算文件内容 SHA256"""
         return hashlib.sha256(content).hexdigest()
@@ -186,7 +182,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             content_hash=doc.content_hash,
             embedding_model=doc.embedding_model,
             chunk_count=doc.chunk_count,
-            status=doc.status,
+            status=doc.status.value if isinstance(doc.status, DocumentStatus) else doc.status,
             error_message=doc.error_message,
             created_time=doc.created_time,
             updated_time=doc.updated_time,
@@ -222,7 +218,6 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
 
     async def create_kb(self, user: User, data: KnowledgeBaseCreate) -> KnowledgeBaseOut:
         """创建知识库"""
-        operator = self._operator_name(user)
         kb = await self.model.create(
             user_id=user.id,
             knowledge_name=data.knowledge_name,
@@ -230,8 +225,6 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             is_public=data.is_public,
             chunk_size=data.chunk_size,
             chunk_overlap=data.chunk_overlap,
-            created_user=operator,
-            updated_user=operator,
         )
         return await self._to_out(kb)
 
@@ -261,7 +254,6 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         kb.is_public = data.is_public
         kb.chunk_size = data.chunk_size
         kb.chunk_overlap = data.chunk_overlap
-        kb.updated_user = self._operator_name(user)
         await kb.save()
         return await self._to_out(kb)
 
@@ -273,15 +265,22 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         self.check_write(kb, user)
         chroma_store.delete_by_kb(kb_id)
         kb.state = 1
-        kb.updated_user = self._operator_name(user)
         await kb.save()
+
+    async def _purge_document(self, doc: Document) -> None:
+        """物理删除文档及其分块、向量与本地文件"""
+        chroma_store.delete_by_doc(doc.id)
+        await DocumentChunk.filter(document_id=doc.id).delete()
+        if os.path.exists(doc.file_path):
+            os.remove(doc.file_path)
+        await doc.delete()
 
     async def _process_document(self, kb: KnowledgeBase, doc: Document) -> None:
         """解析文档、分块并写入向量库"""
         chroma_store.delete_by_doc(doc.id)
         await DocumentChunk.filter(document_id=doc.id).delete()
 
-        doc.status = "processing"
+        doc.status = DocumentStatus.PROCESSING
         doc.error_message = None
         doc.chunk_count = 0
         doc.embedding_model = PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
@@ -334,11 +333,11 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                 chunk.chroma_id = chroma_id
                 await chunk.save()
 
-            doc.status = "completed"
+            doc.status = DocumentStatus.COMPLETED
             doc.chunk_count = len(chunk_models)
             await doc.save()
         except Exception as e:
-            doc.status = "failed"
+            doc.status = DocumentStatus.FAILED
             doc.error_message = str(e)
             await doc.save()
             raise DataBaseStorageException(message=f"文档处理失败: {str(e)}")
@@ -362,12 +361,15 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
 
         existing_doc = await self.document.get_by_content_hash(kb_id, content_hash)
         if existing_doc:
-            raise ParameterException(
-                message=(
-                    f"该文档内容已存在于当前知识库"
-                    f"（与「{existing_doc.filename}」相同），请勿重复上传"
+            if existing_doc.status == DocumentStatus.FAILED:
+                await self._purge_document(existing_doc)
+            else:
+                raise ParameterException(
+                    message=(
+                        f"该文档内容已存在于当前知识库"
+                        f"（与「{existing_doc.filename}」相同），请勿重复上传"
+                    )
                 )
-            )
 
         kb_upload_dir = PROJECT_CONFIG.upload_path / kb_id
         kb_upload_dir.mkdir(parents=True, exist_ok=True)
@@ -384,7 +386,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                 file_size=len(content),
                 content_hash=content_hash,
                 embedding_model=PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL,
-                status="processing",
+                status=DocumentStatus.PROCESSING,
             )
         except IntegrityError:
             raise ParameterException(message="该文档内容已存在于当前知识库，请勿重复上传")
@@ -404,7 +406,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         doc = await self.document.get_by_knowledge_base(kb_id, doc_id)
         if not doc:
             raise NotFoundException(message="文档不存在")
-        if doc.status != "failed":
+        if doc.status != DocumentStatus.FAILED:
             raise ParameterException(message="仅失败状态的文档支持重试")
         if not os.path.exists(doc.file_path):
             raise ParameterException(message="原始文件不存在，请重新上传")

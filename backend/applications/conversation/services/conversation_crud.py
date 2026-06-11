@@ -20,8 +20,7 @@ from backend.applications.conversation.schemas.conversation_schema import (
     ConversationUpdate,
     MessageCreate,
     MessageUpdate,
-    decode_knowledge_base_ids,
-    encode_knowledge_base_ids,
+    normalize_knowledge_base_ids,
 )
 from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
 from backend.applications.model_config.models.model_config_model import ModelConfig
@@ -118,9 +117,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
     ) -> None:
         """更新对话元数据"""
         if knowledge_base_ids is not None:
-            conversation.knowledge_base_ids = encode_knowledge_base_ids(
-                knowledge_base_ids
-            )
+            conversation.knowledge_base_ids = knowledge_base_ids
         if model_config_id is not None:
             conversation.model_config_id = model_config_id
         if title is not None:
@@ -129,8 +126,9 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
 
     @staticmethod
     def get_knowledge_base_ids(conversation: Conversation) -> List[str]:
-        """从对话记录解析知识库 ID 列表"""
-        return decode_knowledge_base_ids(conversation.knowledge_base_ids) or []
+        """从对话记录读取知识库 ID 列表"""
+        ids = normalize_knowledge_base_ids(conversation.knowledge_base_ids)
+        return ids if ids is not None else []
 
     async def list_conversations(self, user: User) -> List[Conversation]:
         """获取当前用户的对话列表"""
@@ -184,9 +182,10 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             user, req.model_config_id
         )
 
-        knowledge_base_ids = (
-            req.knowledge_base_ids or self.get_knowledge_base_ids(conv)
-        )
+        if req.knowledge_base_ids is not None:
+            knowledge_base_ids = req.knowledge_base_ids
+        else:
+            knowledge_base_ids = self.get_knowledge_base_ids(conv)
         if knowledge_base_ids:
             await self._validate_kb_access(knowledge_base_ids, user)
 
@@ -240,7 +239,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
 
         async for token in rag_stream(
             question=question,
-            knowledge_ids=knowledge_base_ids,
+            knowledge_base_ids=knowledge_base_ids,
             chat_history=chat_history,
             **llm_params,
         ):

@@ -78,20 +78,20 @@ class ChromaStore:
 
     def search(
         self,
-        knowledge_ids: List[str],
+        knowledge_base_ids: List[str],
         query_embedding: List[float],
         top_k: int = None,
     ) -> List[dict]:
         """按知识库过滤的相似度检索"""
-        if not knowledge_ids:
+        if not knowledge_base_ids:
             return []
 
         top_k = top_k or PROJECT_CONFIG.RETRIEVAL_TOP_K
 
         where = (
-            {"kb_id": {"$in": knowledge_ids}}
-            if len(knowledge_ids) > 1
-            else {"kb_id": knowledge_ids[0]}
+            {"kb_id": {"$in": knowledge_base_ids}}
+            if len(knowledge_base_ids) > 1
+            else {"kb_id": knowledge_base_ids[0]}
         )
 
         result = self._collection.query(

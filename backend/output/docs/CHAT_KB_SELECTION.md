@@ -19,8 +19,8 @@
 | 原则 | 说明 |
 |------|------|
 | 对话框纯净 | 消息区 + 输入框不承载知识库配置 UI |
-| 对话级绑定 | 知识库与 `conversation.knowledge_ids` 绑定，历史对话可恢复 |
-| 协议已就绪 | 前后端均支持 `knowledge_ids: string[]`，Chroma 支持多库 `$in` 检索 |
+| 对话级绑定 | 知识库与 `conversation.knowledge_base_ids`（JSONField）绑定，历史对话可恢复 |
+| 协议已就绪 | 前后端均支持 `knowledge_base_ids: string[]`，Chroma 支持多库 `$in` 检索 |
 | 渐进增强 | 可先实现低成本方案（A/B），再按需扩展多选（C） |
 
 ### 1.3 当前数据流（基线）
@@ -28,18 +28,21 @@
 ```
 页面加载 → fetchKnowledgeBases() → selectedKBs = [kbs[0].id]
 新建对话 → selectedKBs 重置为 [knowledgeBases[0].id]
-打开历史 → 从 detail.knowledge_ids 恢复 selectedKBs
-发送消息 → chatStream(..., selectedKBs, ...) → POST /chat/stream
+打开历史 → 从 detail.knowledge_base_ids 恢复 selectedKBs
+发送消息 → chatStream(..., selectedKBs, ...) → POST /chat/stream（body: `knowledge_base_ids`）
 ```
 
 后端 `prepare_for_chat`（`conversation_crud.py`）：
 
 ```python
-knowledge_ids = req.knowledge_ids or self.get_knowledge_ids(conv)
-# 非空时校验权限，并写回 conversation.knowledge_ids
+if req.knowledge_base_ids is not None:
+    knowledge_base_ids = req.knowledge_base_ids  # 传 [] 可清空绑定
+else:
+    knowledge_base_ids = self.get_knowledge_base_ids(conv)
+# 非空时校验权限，并写回 conversation.knowledge_base_ids（JSONField）
 ```
 
-RAG 检索（`chain.py` → `chroma_store.py`）按 `knowledge_ids` 过滤；为空则跳过向量检索，走通用对话。
+RAG 检索（`chain.py` → `chroma_store.py`）按知识库 ID 列表过滤；为空则跳过向量检索，走通用对话。
 
 ---
 
@@ -154,7 +157,7 @@ selectedKBs.value = defaultKb ? [defaultKb.id] : (kbs[0] ? [kbs[0].id] : [])
 | 场景 | 行为 |
 |------|------|
 | 新建对话 | 侧栏选择初始化 `selectedKBs`（可用默认库 / localStorage） |
-| 打开历史 | 从 `detail.knowledge_ids` 恢复并同步侧栏 |
+| 打开历史 | 从 `detail.knowledge_base_ids` 恢复并同步侧栏 |
 | 侧栏切换 | 更新 `selectedKBs`，**下一条消息**起生效并写回对话记录 |
 | 已有消息的对话 | 可选提示：「将应用于后续消息」 |
 
@@ -177,7 +180,7 @@ selectedKBs.value = defaultKb ? [defaultKb.id] : (kbs[0] ? [kbs[0].id] : [])
 - `?kb=<id>` 或 `?kb=id1,id2`（与方案 A 共用）
 - 新建对话时可 `router.replace` 带上当前 `selectedKBs`
 
-**localStorage**（示例 key：`chat:last_knowledge_ids`）
+**localStorage**（示例 key：`chat:last_knowledge_base_ids`）
 
 - 每次成功发消息后写入
 - 新建对话时读取；无则回退 B / 第一个
@@ -194,9 +197,9 @@ selectedKBs.value = defaultKb ? [defaultKb.id] : (kbs[0] ? [kbs[0].id] : [])
 **后端改动**（`prepare_for_chat`）
 
 ```python
-knowledge_ids = req.knowledge_ids or self.get_knowledge_ids(conv)
-if not knowledge_ids:
-    knowledge_ids = await kb_crud.list_accessible_ids(user)
+knowledge_base_ids = req.knowledge_base_ids or self.get_knowledge_base_ids(conv)
+if not knowledge_base_ids:
+    knowledge_base_ids = await kb_crud.list_accessible_ids(user)
 ```
 
 **优点**：用户完全不用选；适合库总数少（如 &lt; 5）。  
@@ -226,7 +229,7 @@ if not knowledge_ids:
 
 **数据来源**
 
-- 列表接口返回 `knowledge_ids`，前端用已加载的 `knowledgeBases` 映射名称
+- 列表接口返回 `knowledge_base_ids`，前端用已加载的 `knowledgeBases` 映射名称
 - 或后端 `ConversationOut` 增加 `knowledge_names: string[]`（可选）
 
 **优点**：帮助用户辨认历史对话；只读、无切换负担。  
@@ -265,9 +268,9 @@ if not knowledge_ids:
 
 实现任一方案时需保持与现有逻辑一致：
 
-1. **请求优先**：`req.knowledge_ids` 非空时覆盖对话已存 ID。
-2. **空数组语义**：Python 中 `[]` 为 falsy，会回退到 `conv.knowledge_ids`；不能用 `[]` 表示「清空检索」。
-3. **持久化**：每次 `prepare_for_chat` 都会 `update_meta` 写回 `knowledge_ids`。
+1. **请求优先**：`req.knowledge_base_ids is not None` 时使用请求值（含 `[]` 清空绑定）；未传则读会话已存值。
+2. **存储类型**：`Conversation.knowledge_base_ids` 为 **JSONField**，ORM 直接读写 `list`，无需手动 JSON 编解码。
+3. **持久化**：每次 `prepare_for_chat` 都会 `update_meta` 写回 `knowledge_base_ids`。
 4. **权限**：`_validate_kb_access` 校验存在性 + 公开/所有者/超管。
 5. **检索**：`top_k` / `score_threshold` 来自 `ModelConfig`，与知识库 `chunk_size` 无关。
 6. **Embedding 一致性**：`chain._filter_embedding_model_consistency` 会过滤模型不一致的向量。
@@ -293,7 +296,7 @@ if not knowledge_ids:
 - [ ] 对话框/输入区无任何知识库选择控件
 - [ ] 新建对话使用预期默认库（非「最近更新第一个」除非无默认）
 - [ ] 从知识库页跳转后，首条消息检索命中目标库
-- [ ] 历史对话打开后 `knowledge_ids` 与侧栏/行为一致
+- [ ] 历史对话打开后 `knowledge_base_ids` 与侧栏/行为一致
 - [ ] 切换知识库后，后续消息检索范围正确更新
 - [ ] 无权限 / 已删除知识库时，发消息有明确错误提示
 - [ ] 多库检索时 Chroma `$in` 结果符合预期

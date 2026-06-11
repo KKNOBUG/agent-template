@@ -12,13 +12,12 @@ from backend.applications.base.services.scaffold import (
     ScaffoldModel,
     StateModel,
     TimestampMixin,
-    MaintainMixin,
     unique_identify,
 )
 from backend.enums.chat_session_enum import ChatMessageRole
 
 
-class Conversation(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
+class Conversation(ScaffoldModel, StateModel, TimestampMixin):
     """对话会话模型"""
     id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="对话ID")
     user = fields.ForeignKeyField(
@@ -28,7 +27,7 @@ class Conversation(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
         description="所属用户",
     )
     title = fields.CharField(default="新对话", max_length=255, description="对话标题")
-    knowledge_base_ids = fields.TextField(null=True, description="关联知识库ID列表(JSON)")
+    knowledge_base_ids = fields.JSONField(null=True, description="关联知识库ID列表")
     model_config = fields.ForeignKeyField(
         "models.ModelConfig",
         related_name="conversations",
@@ -42,7 +41,7 @@ class Conversation(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
         table = "keenrobot_conversations"
 
 
-class Message(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
+class Message(ScaffoldModel, StateModel, TimestampMixin):
     """聊天消息模型"""
     id = fields.IntField(pk=True, description="消息ID")
     conversation = fields.ForeignKeyField(

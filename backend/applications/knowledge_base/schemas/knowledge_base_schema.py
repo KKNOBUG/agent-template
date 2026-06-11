@@ -11,6 +11,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from backend.enums.chat_session_enum import DocumentStatus
+
 
 class KnowledgeBaseBase(BaseModel):
     knowledge_name: Optional[str] = Field(default=None, max_length=128, description="知识库名称")
@@ -66,12 +68,14 @@ class DocumentCreate(BaseModel):
     file_size: int = Field(..., description="文件大小(字节)")
     content_hash: str = Field(..., description="文件内容SHA256")
     embedding_model: Optional[str] = Field(default=None, description="向量化模型")
-    status: str = Field(default="processing", description="处理状态")
+    status: DocumentStatus = Field(
+        default=DocumentStatus.PROCESSING, description="处理状态"
+    )
 
 
 class DocumentUpdate(BaseModel):
     """文档更新（CRUD 层）"""
-    status: Optional[str] = Field(default=None, description="处理状态")
+    status: Optional[DocumentStatus] = Field(default=None, description="处理状态")
     chunk_count: Optional[int] = Field(default=None, description="分块数量")
     error_message: Optional[str] = Field(default=None, description="错误信息")
 

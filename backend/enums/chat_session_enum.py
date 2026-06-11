@@ -16,3 +16,11 @@ class ChatMessageRole(StringEnum):
 
     USER = ("user", "用户")
     ASSISTANT = ("assistant", "助手")
+
+
+class DocumentStatus(StringEnum):
+    """文档上传与处理状态"""
+
+    PROCESSING = ("processing", "处理中")
+    COMPLETED = ("completed", "已完成")
+    FAILED = ("failed", "失败")

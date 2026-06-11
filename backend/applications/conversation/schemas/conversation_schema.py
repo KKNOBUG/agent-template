@@ -15,24 +15,18 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from backend.enums.chat_session_enum import ChatMessageRole
 
 
-def encode_knowledge_base_ids(
-    knowledge_base_ids: Optional[List[str]],
-) -> Optional[str]:
-    """将知识库 ID 列表编码为数据库存储的 JSON 字符串"""
-    if knowledge_base_ids is None:
-        return None
-    return json.dumps(knowledge_base_ids) if knowledge_base_ids else None
-
-
-def decode_knowledge_base_ids(value) -> Optional[List[str]]:
-    """将数据库 JSON 字符串解析为知识库 ID 列表"""
+def normalize_knowledge_base_ids(value) -> Optional[List[str]]:
+    """统一知识库 ID 列表（兼容 JSONField 与历史 LONGTEXT JSON 字符串）"""
     if value is None:
         return None
     if isinstance(value, list):
         return value
     if isinstance(value, str):
+        if not value.strip():
+            return None
         try:
-            return json.loads(value)
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, list) else None
         except (json.JSONDecodeError, TypeError):
             return None
     return None
@@ -51,12 +45,7 @@ class ConversationCreate(ConversationBase):
     title: str = Field(default="新对话", max_length=255, description="对话标题")
 
     def create_dict(self):
-        obj = self.model_dump(exclude_unset=True)
-        if "knowledge_base_ids" in obj:
-            obj["knowledge_base_ids"] = encode_knowledge_base_ids(
-                obj.get("knowledge_base_ids")
-            )
-        return obj
+        return self.model_dump(exclude_unset=True)
 
 
 class ConversationUpdate(ConversationBase):
@@ -85,7 +74,7 @@ class ConversationOut(BaseModel):
     @field_validator("knowledge_base_ids", mode="before")
     @classmethod
     def parse_knowledge_base_ids(cls, v):
-        return decode_knowledge_base_ids(v)
+        return normalize_knowledge_base_ids(v)
 
 
 class ConversationDetail(ConversationOut):
@@ -133,6 +122,7 @@ class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000, description="用户问题")
     conversation_id: Optional[str] = Field(default=None, description="对话ID")
     knowledge_base_ids: Optional[List[str]] = Field(
-        default=None, description="关联知识库ID列表"
+        default=None,
+        description="关联知识库ID列表；传 [] 表示清空绑定，不传则沿用会话已存值",
     )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")

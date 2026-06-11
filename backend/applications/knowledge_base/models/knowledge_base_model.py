@@ -12,12 +12,12 @@ from backend.applications.base.services.scaffold import (
     ScaffoldModel,
     StateModel,
     TimestampMixin,
-    MaintainMixin,
     unique_identify,
 )
+from backend.enums.chat_session_enum import DocumentStatus
 
 
-class KnowledgeBase(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
+class KnowledgeBase(ScaffoldModel, StateModel, TimestampMixin):
     """知识库模型"""
     id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="知识库ID")
     knowledge_name = fields.CharField(max_length=128, description="知识库名称")
@@ -54,7 +54,9 @@ class Document(ScaffoldModel, TimestampMixin):
     content_hash = fields.CharField(max_length=64, null=True, description="文件内容SHA256")
     embedding_model = fields.CharField(max_length=64, null=True, description="向量化模型")
     chunk_count = fields.IntField(default=0, description="分块数量")
-    status = fields.CharField(max_length=32, default="processing", description="处理状态")
+    status = fields.CharEnumField(
+        DocumentStatus, max_length=32, default=DocumentStatus.PROCESSING, description="处理状态"
+    )
     error_message = fields.TextField(null=True, description="错误信息")
 
     document_chunks: fields.ReverseRelation["DocumentChunk"]

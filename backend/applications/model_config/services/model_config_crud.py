@@ -133,17 +133,18 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         current_user: User,
         model_config_id: Optional[str] = None,
     ) -> Optional[ModelConfig]:
-        """解析聊天场景使用的模型配置"""
-        if not current_user.is_superuser:
-            admin = await User.get_or_none(username="admin")
-            if admin:
-                config = await self.get_default_config(admin.id)
-                if config:
-                    return config
-
+        """解析聊天场景使用的模型配置：优先当前用户指定/默认，其次降级为管理员默认"""
         if model_config_id:
             config = await self.get_by_id_and_user(model_config_id, current_user.id)
             if config:
                 return config
 
-        return await self.get_default_config(current_user.id)
+        config = await self.get_default_config(current_user.id)
+        if config:
+            return config
+
+        admin = await User.get_or_none(username="admin")
+        if admin:
+            return await self.get_default_config(admin.id)
+
+        return None
