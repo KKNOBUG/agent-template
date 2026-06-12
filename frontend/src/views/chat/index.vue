@@ -55,6 +55,22 @@ const kbPickerItems = computed(() =>
     })),
 )
 
+const skillPickerItems = computed(() =>
+    skillItems.value.map((skill) => ({
+      id: skill.id,
+      label: skill.name,
+      tag: skill.description || undefined,
+    })),
+)
+
+const mcpPickerItems = computed(() =>
+    mcpItems.value.map((mcp) => ({
+      id: mcp.id,
+      label: mcp.name,
+      tag: mcp.transport || undefined,
+    })),
+)
+
 // 从URL获取对话ID
 const conversationId = ref(normalizeConversationId(route.query.conversation))
 
@@ -178,6 +194,22 @@ onMounted(async () => {
     modelConfigs.value = []
   }
 
+  try {
+    const skills = await api.fetchSkills()
+    skillItems.value = skills || []
+  } catch (err) {
+    console.error('[Chat] 加载技能列表失败:', err)
+    skillItems.value = []
+  }
+
+  try {
+    const mcps = await api.fetchMcpServers()
+    mcpItems.value = mcps || []
+  } catch (err) {
+    console.error('[Chat] 加载 MCP 列表失败:', err)
+    mcpItems.value = []
+  }
+
   if (inputRef.value) inputRef.value.focus()
 
   // 加载对话
@@ -221,6 +253,8 @@ async function switchToConversation(newId) {
     currentConvId = null
     messages.value = []
     selectedKBs.value = []
+    selectedSkills.value = []
+    selectedMcps.value = []
     activeTurnIndex.value = 0
     // 恢复默认模型配置
     if (modelConfigs.value.length > 0) {
@@ -265,6 +299,12 @@ async function loadConversation(id) {
     }))
     if (detail.knowledge_base_ids != null) {
       selectedKBs.value = detail.knowledge_base_ids
+    }
+    if (detail.skill_ids != null) {
+      selectedSkills.value = detail.skill_ids
+    }
+    if (detail.mcp_ids != null) {
+      selectedMcps.value = detail.mcp_ids
     }
     if (detail.model_config_id) {
       selectedModelConfig.value = detail.model_config_id
@@ -450,6 +490,8 @@ async function sendMessage() {
       selectedKBs.value,
       selectedModelConfig.value,
       enableDeepThinking.value,
+      selectedSkills.value,
+      selectedMcps.value,
       {
         onMeta(data) {
           if (data.conversation_id && !currentConvId) {
@@ -696,7 +738,7 @@ function renderMarkdown(text) {
                           search-placeholder="搜索 Skills..."
                           empty-text="暂无可用 Skills"
                           no-match-text="未找到匹配的 Skills"
-                          :items="skillItems"
+                          :items="skillPickerItems"
                           allow-empty
                       />
                       <ChatFeaturePicker
@@ -706,7 +748,7 @@ function renderMarkdown(text) {
                           search-placeholder="搜索 MCP 服务..."
                           empty-text="暂无可用 MCP 服务"
                           no-match-text="未找到匹配的 MCP 服务"
-                          :items="mcpItems"
+                          :items="mcpPickerItems"
                           allow-empty
                       />
                       <ChatDeepThinkingToggle v-model="enableDeepThinking" />

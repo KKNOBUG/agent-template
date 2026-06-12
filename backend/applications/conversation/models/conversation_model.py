@@ -28,6 +28,8 @@ class Conversation(ScaffoldModel, StateModel, TimestampMixin):
     )
     title = fields.CharField(default="新对话", max_length=255, description="对话标题")
     knowledge_base_ids = fields.JSONField(null=True, description="关联知识库ID列表")
+    skill_ids = fields.JSONField(null=True, description="关联技能ID列表")
+    mcp_ids = fields.JSONField(null=True, description="关联MCP服务ID列表")
     model_config = fields.ForeignKeyField(
         "models.ModelConfig",
         related_name="conversations",

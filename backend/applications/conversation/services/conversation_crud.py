@@ -27,7 +27,10 @@ from backend.applications.conversation.schemas.conversation_schema import (
     TokenUsage,
     UserBrief,
     normalize_knowledge_base_ids,
+    normalize_mcp_ids,
+    normalize_skill_ids,
 )
+from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
 from backend.applications.knowledge_base.models.knowledge_base_model import KnowledgeBase
 from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
 from backend.applications.model_config.models.model_config_model import ModelConfig
@@ -133,12 +136,18 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         conversation: Conversation,
         *,
         knowledge_base_ids: Optional[List[str]] = None,
+        skill_ids: Optional[List[str]] = None,
+        mcp_ids: Optional[List[str]] = None,
         model_config_id: Optional[str] = None,
         title: Optional[str] = None,
     ) -> None:
         """更新对话元数据"""
         if knowledge_base_ids is not None:
             conversation.knowledge_base_ids = knowledge_base_ids
+        if skill_ids is not None:
+            conversation.skill_ids = skill_ids
+        if mcp_ids is not None:
+            conversation.mcp_ids = mcp_ids
         if model_config_id is not None:
             conversation.model_config_id = model_config_id
         if title is not None:
@@ -149,6 +158,18 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
     def get_knowledge_base_ids(conversation: Conversation) -> List[str]:
         """从对话记录读取知识库 ID 列表"""
         ids = normalize_knowledge_base_ids(conversation.knowledge_base_ids)
+        return ids if ids is not None else []
+
+    @staticmethod
+    def get_skill_ids(conversation: Conversation) -> List[str]:
+        """从对话记录读取技能 ID 列表"""
+        ids = normalize_skill_ids(conversation.skill_ids)
+        return ids if ids is not None else []
+
+    @staticmethod
+    def get_mcp_ids(conversation: Conversation) -> List[str]:
+        """从对话记录读取 MCP 服务 ID 列表"""
+        ids = normalize_mcp_ids(conversation.mcp_ids)
         return ids if ids is not None else []
 
     async def list_conversations(self, user: User) -> List[Conversation]:
@@ -188,6 +209,28 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
                 raise NotFoundException(message=f"知识库 {kb_id} 不存在")
             kb_crud.check_access(kb, user)
 
+    async def _validate_skill_access(
+        self, skill_ids: List[str], user: User
+    ) -> None:
+        """校验技能访问权限"""
+        skill_crud = SkillCrud()
+        for skill_id in skill_ids:
+            skill = await skill_crud.get_by_id(skill_id)
+            if not skill or not skill.is_enabled:
+                raise NotFoundException(message=f"技能 {skill_id} 不存在")
+            skill_crud.check_access(skill, user)
+
+    async def _validate_mcp_access(
+        self, mcp_ids: List[str], user: User
+    ) -> None:
+        """校验 MCP 服务访问权限"""
+        mcp_crud = McpServerCrud()
+        for mcp_id in mcp_ids:
+            mcp = await mcp_crud.get_by_id(mcp_id)
+            if not mcp or not mcp.is_enabled:
+                raise NotFoundException(message=f"MCP 服务 {mcp_id} 不存在")
+            mcp_crud.check_access(mcp, user)
+
     async def prepare_for_chat(
         self, req: ChatRequest, user: User
     ) -> tuple[Conversation, Optional[ModelConfig], List[dict], List[str]]:
@@ -210,9 +253,25 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         if knowledge_base_ids:
             await self._validate_kb_access(knowledge_base_ids, user)
 
+        if req.skill_ids is not None:
+            skill_ids = req.skill_ids
+        else:
+            skill_ids = self.get_skill_ids(conv)
+        if skill_ids:
+            await self._validate_skill_access(skill_ids, user)
+
+        if req.mcp_ids is not None:
+            mcp_ids = req.mcp_ids
+        else:
+            mcp_ids = self.get_mcp_ids(conv)
+        if mcp_ids:
+            await self._validate_mcp_access(mcp_ids, user)
+
         await self.update_meta(
             conv,
             knowledge_base_ids=knowledge_base_ids,
+            skill_ids=skill_ids,
+            mcp_ids=mcp_ids,
             model_config_id=model_config.id if model_config else None,
         )
 

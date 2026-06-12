@@ -15,8 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from backend.enums.chat_session_enum import ChatMessageRole
 
 
-def normalize_knowledge_base_ids(value) -> Optional[List[str]]:
-    """统一知识库 ID 列表（兼容 JSONField 与历史 LONGTEXT JSON 字符串）"""
+def normalize_id_list(value) -> Optional[List[str]]:
+    """统一 ID 列表（兼容 JSONField 与历史 LONGTEXT JSON 字符串）"""
     if value is None:
         return None
     if isinstance(value, list):
@@ -32,10 +32,31 @@ def normalize_knowledge_base_ids(value) -> Optional[List[str]]:
     return None
 
 
+def normalize_knowledge_base_ids(value) -> Optional[List[str]]:
+    """统一知识库 ID 列表"""
+    return normalize_id_list(value)
+
+
+def normalize_skill_ids(value) -> Optional[List[str]]:
+    """统一技能 ID 列表"""
+    return normalize_id_list(value)
+
+
+def normalize_mcp_ids(value) -> Optional[List[str]]:
+    """统一 MCP 服务 ID 列表"""
+    return normalize_id_list(value)
+
+
 class ConversationBase(BaseModel):
     title: Optional[str] = Field(default=None, max_length=255, description="对话标题")
     knowledge_base_ids: Optional[List[str]] = Field(
         default=None, description="关联知识库ID列表"
+    )
+    skill_ids: Optional[List[str]] = Field(
+        default=None, description="关联技能ID列表"
+    )
+    mcp_ids: Optional[List[str]] = Field(
+        default=None, description="关联MCP服务ID列表"
     )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")
 
@@ -66,6 +87,8 @@ class ConversationOut(BaseModel):
         default=None, description="关联知识库ID列表"
     )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")
+    skill_ids: Optional[List[str]] = Field(default=None, description="关联技能ID列表")
+    mcp_ids: Optional[List[str]] = Field(default=None, description="关联MCP服务ID列表")
     created_time: datetime = Field(..., description="创建时间")
     updated_time: datetime = Field(..., description="更新时间")
 
@@ -75,6 +98,16 @@ class ConversationOut(BaseModel):
     @classmethod
     def parse_knowledge_base_ids(cls, v):
         return normalize_knowledge_base_ids(v)
+
+    @field_validator("skill_ids", mode="before")
+    @classmethod
+    def parse_skill_ids(cls, v):
+        return normalize_skill_ids(v)
+
+    @field_validator("mcp_ids", mode="before")
+    @classmethod
+    def parse_mcp_ids(cls, v):
+        return normalize_mcp_ids(v)
 
 
 class ConversationDetail(ConversationOut):
@@ -190,4 +223,12 @@ class ChatRequest(BaseModel):
         description="关联知识库ID列表；传 [] 表示清空绑定，不传则沿用会话已存值",
     )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")
+    skill_ids: Optional[List[str]] = Field(
+        default=None,
+        description="关联技能ID列表；传 [] 表示清空绑定，不传则沿用会话已存值",
+    )
+    mcp_ids: Optional[List[str]] = Field(
+        default=None,
+        description="关联MCP服务ID列表；传 [] 表示清空绑定，不传则沿用会话已存值",
+    )
     enable_thinking: bool = Field(default=False, description="是否开启深度思考模式")

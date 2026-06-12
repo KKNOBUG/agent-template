@@ -40,6 +40,28 @@ export default {
   fetchChunks: (kbId, docId) =>
       request.get(`/knowledge-bases/${kbId}/chunks?document_id=${docId}`).then(payload),
 
+  fetchSkills: (search = '', manage = false) => {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    if (manage) params.set('manage', 'true')
+    const qs = params.toString()
+    return request.get(qs ? `/skills/?${qs}` : '/skills/').then(payload)
+  },
+  createSkill: (data) => request.post('/skills/', data).then(payload),
+  updateSkill: (id, data) => request.put(`/skills/${id}`, data).then(payload),
+  deleteSkill: (id) => request.delete(`/skills/${id}`).then(payload),
+
+  fetchMcpServers: (search = '', manage = false) => {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    if (manage) params.set('manage', 'true')
+    const qs = params.toString()
+    return request.get(qs ? `/mcp-servers/?${qs}` : '/mcp-servers/').then(payload)
+  },
+  createMcpServer: (data) => request.post('/mcp-servers/', data).then(payload),
+  updateMcpServer: (id, data) => request.put(`/mcp-servers/${id}`, data).then(payload),
+  deleteMcpServer: (id) => request.delete(`/mcp-servers/${id}`).then(payload),
+
   fetchModelConfigs: () => request.get('/model-configs/').then(payload),
   createModelConfig: (data) => request.post('/model-configs/', data).then(payload),
   updateModelConfig: (id, data) => request.put(`/model-configs/${id}`, data).then(payload),
@@ -80,6 +102,8 @@ export function chatStream(
     knowledgeBaseIds = [],
     modelConfigId = null,
     enableThinking = false,
+    skillIds = [],
+    mcpIds = [],
     { onToken, onReasoning, onMeta, onDone, onError }
 ) {
   const controller = new AbortController()
@@ -97,6 +121,8 @@ export function chatStream(
       knowledge_base_ids: knowledgeBaseIds,
       model_config_id: modelConfigId,
       enable_thinking: enableThinking,
+      skill_ids: skillIds,
+      mcp_ids: mcpIds,
     }),
     signal: controller.signal,
   })

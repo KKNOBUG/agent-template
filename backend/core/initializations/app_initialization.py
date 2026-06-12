@@ -190,6 +190,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=example_category_router, prefix="/example", tags=["示例服务-商品分类"], dependencies=[DependAuth])
     app.include_router(router=example_product_router, prefix="/example", tags=["示例服务-商品模型"], dependencies=[DependAuth])
 
+    from backend.applications.agent.views import mcp_servers_router, skills_router
     from backend.applications.conversation.views import chat_router, history_router
     from backend.applications.knowledge_base.views import knowledge_router
     from backend.applications.model_config.views import model_router
@@ -198,3 +199,5 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=history_router, prefix="/conversations", tags=["RAG-对话历史"], dependencies=[DependAuth])
     app.include_router(router=knowledge_router, prefix="/knowledge-bases", tags=["RAG-知识库"], dependencies=[DependAuth])
     app.include_router(router=model_router, prefix="/model-configs", tags=["RAG-模型配置"], dependencies=[DependAuth])
+    app.include_router(router=skills_router, prefix="/skills", tags=["RAG-Agent技能"], dependencies=[DependAuth])
+    app.include_router(router=mcp_servers_router, prefix="/mcp-servers", tags=["RAG-MCP服务"], dependencies=[DependAuth])

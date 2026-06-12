@@ -139,6 +139,8 @@ function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
 
 .message.user .bubble-content {
   background-color: var(--chat-input-border);
+  white-space: pre-wrap;
+  tab-size: 4;
 }
 
 .message.assistant .bubble-content {

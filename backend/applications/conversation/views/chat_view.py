@@ -6,6 +6,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from backend.applications.conversation.dependencies import get_conversation_crud
 from backend.applications.conversation.schemas.conversation_schema import ChatRequest
+from backend.applications.conversation.schemas.process_step_schema import ReasoningStep
 from backend.applications.conversation.services.conversation_crud import ConversationCrud
 from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
@@ -85,11 +86,9 @@ async def chat_stream(
 
         process_trace = []
         if full_reasoning.strip():
-            process_trace.append({
-                "type": "reasoning",
-                "content": full_reasoning,
-                "status": "done",
-            })
+            process_trace.append(
+                ReasoningStep(content=full_reasoning, status="done").model_dump()
+            )
 
         # 2.4 保存完整回复到数据库
         try:

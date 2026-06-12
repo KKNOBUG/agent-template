@@ -1,6 +1,14 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
+import {
+  STEP_STATUS,
+  STEP_TYPES,
+  formatJsonBlock,
+  isStepVisible,
+  stepIcon,
+  stepLabel,
+} from '@/types/processStep'
 
 const props = defineProps({
   steps: {
@@ -16,22 +24,16 @@ const props = defineProps({
 const expandedMap = ref({})
 
 const visibleSteps = computed(() =>
-  (props.steps || []).filter((step) => step?.content || step?.status === 'running'),
+    (props.steps || []).filter(isStepVisible),
 )
 
 function stepKey(step, index) {
   return `${step.type}-${index}`
 }
 
-function stepLabel(step) {
-  if (step.type === 'reasoning') return '深度思考'
-  if (step.type === 'tool') return step.name || '工具调用'
-  return step.title || '处理过程'
-}
-
 function stepStatusText(step) {
-  if (step.status === 'running') return '进行中'
-  if (step.status === 'error') return '失败'
+  if (step.status === STEP_STATUS.RUNNING) return '进行中'
+  if (step.status === STEP_STATUS.ERROR) return '失败'
   return '已完成'
 }
 
@@ -40,7 +42,7 @@ function isExpanded(step, index) {
   if (expandedMap.value[key] != null) {
     return expandedMap.value[key]
   }
-  return step.status === 'running'
+  return step.status === STEP_STATUS.RUNNING
 }
 
 function toggle(step, index) {
@@ -49,16 +51,16 @@ function toggle(step, index) {
 }
 
 watch(
-  () => props.steps,
-  (steps) => {
-    steps?.forEach((step, index) => {
-      const key = stepKey(step, index)
-      if (step.status === 'running' && expandedMap.value[key] == null) {
-        expandedMap.value[key] = true
-      }
-    })
-  },
-  { deep: true },
+    () => props.steps,
+    (steps) => {
+      steps?.forEach((step, index) => {
+        const key = stepKey(step, index)
+        if (step.status === STEP_STATUS.RUNNING && expandedMap.value[key] == null) {
+          expandedMap.value[key] = true
+        }
+      })
+    },
+    { deep: true },
 )
 </script>
 
@@ -68,7 +70,7 @@ watch(
         v-for="(step, index) in visibleSteps"
         :key="stepKey(step, index)"
         class="chat-process-step"
-        :class="[`is-${step.type}`, { 'is-running': step.status === 'running' }]"
+        :class="[`is-${step.type}`, { 'is-running': step.status === STEP_STATUS.RUNNING }]"
     >
       <button
           type="button"
@@ -76,7 +78,7 @@ watch(
           @click="toggle(step, index)"
       >
         <TheIcon
-            :icon="step.type === 'tool' ? 'hugeicons:wrench-01' : 'hugeicons:brain-02'"
+            :icon="stepIcon(step)"
             :size="14"
             color="var(--primary-color)"
         />
@@ -91,11 +93,55 @@ watch(
         />
       </button>
       <div v-show="isExpanded(step, index)" class="chat-process-step-body">
-        <pre class="chat-process-step-content">{{ step.content }}</pre>
-        <span
-            v-if="step.status === 'running' && streaming"
-            class="chat-process-step-cursor"
-        />
+        <!-- reasoning -->
+        <template v-if="step.type === STEP_TYPES.REASONING">
+          <pre class="chat-process-step-content">{{ step.content }}</pre>
+          <span
+              v-if="step.status === STEP_STATUS.RUNNING && streaming"
+              class="chat-process-step-cursor"
+          />
+        </template>
+
+        <!-- skill -->
+        <template v-else-if="step.type === STEP_TYPES.SKILL">
+          <div v-if="step.input" class="chat-process-block">
+            <span class="chat-process-block-label">输入</span>
+            <pre class="chat-process-step-content">{{ formatJsonBlock(step.input) }}</pre>
+          </div>
+          <div v-if="step.output" class="chat-process-block">
+            <span class="chat-process-block-label">输出</span>
+            <pre class="chat-process-step-content">{{ step.output }}</pre>
+          </div>
+          <p
+              v-if="step.status === STEP_STATUS.RUNNING && !step.output"
+              class="chat-process-step-placeholder"
+          >
+            技能执行中…
+          </p>
+        </template>
+
+        <!-- mcp -->
+        <template v-else-if="step.type === STEP_TYPES.MCP">
+          <div v-if="step.arguments" class="chat-process-block">
+            <span class="chat-process-block-label">参数</span>
+            <pre class="chat-process-step-content">{{ formatJsonBlock(step.arguments) }}</pre>
+          </div>
+          <div v-if="step.result" class="chat-process-block">
+            <span class="chat-process-block-label">结果</span>
+            <pre class="chat-process-step-content">{{ step.result }}</pre>
+          </div>
+          <p
+              v-if="step.status === STEP_STATUS.RUNNING && !step.result"
+              class="chat-process-step-placeholder"
+          >
+            工具调用中…
+          </p>
+        </template>
+
+        <!-- fallback -->
+        <template v-else>
+          <pre class="chat-process-step-content">{{ step.content }}</pre>
+        </template>
       </div>
     </div>
   </div>
@@ -154,6 +200,18 @@ watch(
   padding: 0 10px 10px;
 }
 
+.chat-process-block + .chat-process-block {
+  margin-top: 8px;
+}
+
+.chat-process-block-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--chat-muted-text, #a3a3a3);
+}
+
 .chat-process-step-content {
   margin: 0;
   max-height: 240px;
@@ -175,6 +233,12 @@ watch(
 .chat-process-step-content::-webkit-scrollbar-thumb {
   background: #ccc;
   border-radius: 3px;
+}
+
+.chat-process-step-placeholder {
+  margin: 0;
+  font-size: 12px;
+  color: var(--chat-muted-text, #a3a3a3);
 }
 
 .chat-process-step-cursor {
