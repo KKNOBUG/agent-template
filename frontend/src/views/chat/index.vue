@@ -671,8 +671,22 @@ function renderMarkdown(text) {
 .messages-area {
   flex: 1;
   min-height: 0;
-  padding: 1px 0 8px;
   overflow-y: auto;
+  /* 滚动条样式 */
+  scrollbar-width: thin; /* 火狐：细滚动条 */
+  scrollbar-color: #ccc transparent;
+}
+
+/* Chrome / Edge / Safari */
+.messages-area::-webkit-scrollbar {
+  width: 6px;
+}
+.messages-area::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+.messages-area::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .messages-area.is-empty {
