@@ -582,11 +582,6 @@ function renderMarkdown(text) {
                       智能助手，很高兴见到你！
                     </p>
                   </div>
-                  <ChatKbPicker
-                      v-model="selectedKBs"
-                      class="welcome-kb-picker"
-                      :items="knowledgeBases"
-                  />
                 </div>
 
                 <template v-else>
@@ -634,16 +629,22 @@ function renderMarkdown(text) {
                       :disabled="isLoading || isConversationLoading"
                       @keydown="handleKeydown"
                   />
-                  <button
-                      class="send-btn"
-                      type="button"
-                      :disabled="!inputText.trim() || isLoading || isConversationLoading"
-                      @click="sendMessage()"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-                    </svg>
-                  </button>
+                  <div class="input-box-actions">
+                    <div class="input-box-actions-left">
+                      <ChatKbPicker
+                          v-model="selectedKBs"
+                          :items="knowledgeBases"
+                      />
+                    </div>
+                    <button
+                        class="send-btn"
+                        type="button"
+                        :disabled="!inputText.trim() || isLoading || isConversationLoading"
+                        @click="sendMessage()"
+                    >
+                      <TheIcon icon="material-symbols:send-rounded" :size="18" color="#fff" />
+                    </button>
+                  </div>
                 </div>
                 <p class="input-disclaimer">内容由 AI 生成，请仔细甄别 · KEENROBOT助手</p>
               </div>
@@ -839,7 +840,7 @@ function renderMarkdown(text) {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 15vh;
+  padding-top: 25vh;
   overflow: hidden;
 }
 
@@ -882,12 +883,6 @@ function renderMarkdown(text) {
   align-items: center;
   gap: 8px;
   max-width: 640px;
-}
-
-.welcome-kb-picker {
-  width: 100%;
-  max-width: 640px;
-  margin-top: 20px;
 }
 
 .welcome-greeting {
@@ -951,13 +946,26 @@ function renderMarkdown(text) {
   grid-column: 2;
   min-width: 0;
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 10px 12px 10px 16px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 8px 16px;
   border: 1px solid var(--chat-input-border);
   border-radius: 12px;
   background-color: var(--chat-input-surface);
   box-shadow: var(--chat-input-shadow);
+}
+
+.input-box-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.input-box-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .input-textarea {
@@ -992,13 +1000,20 @@ function renderMarkdown(text) {
   justify-content: center;
   width: 28px;
   height: 28px;
+  padding: 0;
+  border: none;
   border-radius: 50%;
   background: var(--primary-color, #f4511e);
   color: #fff;
   flex-shrink: 0;
-  transition: all 0.2s;
-  border: none;
+  transition: background-color 0.2s, opacity 0.2s;
   cursor: pointer;
+}
+
+.send-btn :deep(.n-icon) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .send-btn:hover:not(:disabled) {
