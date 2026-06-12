@@ -1,12 +1,13 @@
 <script setup>
 defineOptions({ name: 'Chat' })
 
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { NButton, NLayout, NLayoutContent, NLayoutSider, NSkeleton } from 'naive-ui'
 import MessageBubble from '../../components/MessageBubble.vue'
 import ChatKbPicker from '../../components/chat/ChatKbPicker.vue'
+import ChatTurnNodes from '../../components/chat/ChatTurnNodes.vue'
 import CommonPage from '@/components/page/CommonPage.vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
 import api, { chatStream } from '@/api'
@@ -24,6 +25,7 @@ const messagesContainer = ref(null)
 const inputRef = ref(null)
 const showScrollFab = ref(false)
 const scrollFabToBottom = ref(true)
+const activeTurnIndex = ref(0)
 let currentConvId = null
 let streamController = null
 let loadConversationSeq = 0
@@ -54,6 +56,50 @@ async function loadConversations() {
 function buildConversationTitle(question) {
   if (!question) return '新对话'
   return question.slice(0, 20) + (question.length > 20 ? '...' : '')
+}
+
+function buildTurnLabel(content) {
+  if (!content) return ''
+  return content.slice(0, 20) + (content.length > 20 ? '...' : '')
+}
+
+const userTurns = computed(() => {
+  const turns = []
+  messages.value.forEach((msg, messageIndex) => {
+    if (msg.role === 'user') {
+      turns.push({
+        turnIndex: turns.length,
+        messageIndex,
+        label: buildTurnLabel(msg.content),
+        fullContent: msg.content,
+      })
+    }
+  })
+  return turns
+})
+
+const showTurnNodes = computed(() =>
+    !isConversationLoading.value && userTurns.value.length > 0,
+)
+
+const selectedKbLabel = computed(() => {
+  if (selectedKBs.value.length === 0) return '未选择知识库'
+  const names = knowledgeBases.value
+      .filter((kb) => selectedKBs.value.includes(kb.id))
+      .map((kb) => kb.knowledge_name)
+  return names.length > 0 ? names.join('、') : '未选择知识库'
+})
+
+const messageTurnMap = computed(() => {
+  const map = new Map()
+  userTurns.value.forEach((turn) => {
+    map.set(turn.messageIndex, turn.turnIndex)
+  })
+  return map
+})
+
+function userTurnIndexForMessage(messageIndex) {
+  return messageTurnMap.value.get(messageIndex)
 }
 
 function prependConversation(id, title) {
@@ -121,7 +167,10 @@ onUnmounted(() => {
 })
 
 watch(messages, () => {
-  nextTick(updateScrollFabState)
+  nextTick(() => {
+    updateScrollFabState()
+    updateActiveTurn()
+  })
 })
 
 async function switchToConversation(newId) {
@@ -140,6 +189,7 @@ async function switchToConversation(newId) {
     currentConvId = null
     messages.value = []
     selectedKBs.value = []
+    activeTurnIndex.value = 0
     // 恢复默认模型配置
     if (modelConfigs.value.length > 0) {
       selectedModelConfig.value = modelConfigs.value.find(c => c.is_default)?.id || modelConfigs.value[0].id
@@ -263,8 +313,47 @@ function updateScrollFabState() {
   scrollFabToBottom.value = scrollTop < maxScroll / 2
 }
 
+function updateActiveTurn() {
+  const container = messagesContainer.value
+  if (!container || userTurns.value.length === 0) {
+    activeTurnIndex.value = 0
+    return
+  }
+
+  const containerRect = container.getBoundingClientRect()
+  const threshold = containerRect.top + 80
+  const turnEls = container.querySelectorAll('[data-user-turn]')
+  let nextActive = 0
+
+  turnEls.forEach((el, idx) => {
+    if (el.getBoundingClientRect().top <= threshold) {
+      nextActive = idx
+    }
+  })
+
+  activeTurnIndex.value = nextActive
+}
+
+function scrollToTurn(turnIndex) {
+  const container = messagesContainer.value
+  if (!container) return
+
+  const el = container.querySelector(`[data-user-turn="${turnIndex}"]`)
+  if (!el) return
+
+  activeTurnIndex.value = turnIndex
+  const containerRect = container.getBoundingClientRect()
+  const elRect = el.getBoundingClientRect()
+  const targetTop = container.scrollTop + (elRect.top - containerRect.top) - 16
+  container.scrollTo({
+    top: Math.max(0, targetTop),
+    behavior: 'smooth',
+  })
+}
+
 function onMessagesScroll() {
   updateScrollFabState()
+  updateActiveTurn()
 }
 
 function handleScrollFabClick() {
@@ -435,75 +524,89 @@ function renderMarkdown(text) {
       <CommonPage :show-header="false" :show-footer="false" inherit-background>
         <div class="chat-panel">
           <div class="chat-thread">
-            <div
-                ref="messagesContainer"
-                class="messages-area"
-                :class="{ 'is-empty': !isConversationLoading && messages.length === 0 }"
-            >
-              <div v-if="isConversationLoading" class="messages-skeleton">
-                <div class="message-skeleton user">
-                  <div class="avatar-col" />
-                  <NSkeleton class="skeleton-bubble" :sharp="false" height="40px" width="38%" />
-                  <div class="avatar-col">
-                    <NSkeleton circle width="36px" height="36px" />
-                  </div>
-                </div>
-                <div class="message-skeleton assistant">
-                  <div class="avatar-col">
-                    <NSkeleton circle width="36px" height="36px" />
-                  </div>
-                  <div class="skeleton-bubble skeleton-bubble--wide">
-                    <NSkeleton text :repeat="3" />
-                  </div>
-                  <div class="avatar-col" />
-                </div>
-                <div class="message-skeleton user">
-                  <div class="avatar-col" />
-                  <NSkeleton class="skeleton-bubble" :sharp="false" height="40px" width="32%" />
-                  <div class="avatar-col">
-                    <NSkeleton circle width="36px" height="36px" />
-                  </div>
-                </div>
-                <div class="message-skeleton assistant">
-                  <div class="avatar-col">
-                    <NSkeleton circle width="36px" height="36px" />
-                  </div>
-                  <div class="skeleton-bubble skeleton-bubble--wide">
-                    <NSkeleton text :repeat="2" />
-                  </div>
-                  <div class="avatar-col" />
-                </div>
-              </div>
-
-              <div v-else-if="messages.length === 0" class="welcome">
-                <div class="welcome-brand">
-                  <icon-custom-logo-new text-36 color-primary flex-shrink-0 />
-                  <p class="welcome-greeting">
-                    我是
-                    <span class="welcome-app-name">{{ $t('app_name') }}</span>
-                    智能助手，很高兴见到你！
-                  </p>
-                </div>
-                <ChatKbPicker
-                    v-model="selectedKBs"
-                    class="welcome-kb-picker"
-                    :items="knowledgeBases"
+            <div class="messages-wrapper">
+              <div v-if="showTurnNodes" class="turn-nodes-rail">
+                <ChatTurnNodes
+                    :turns="userTurns"
+                    :active-turn-index="activeTurnIndex"
+                    :kb-label="selectedKbLabel"
+                    @select="scrollToTurn"
                 />
               </div>
+              <div
+                  ref="messagesContainer"
+                  class="messages-area"
+                  :class="{ 'is-empty': !isConversationLoading && messages.length === 0 }"
+              >
+                <div v-if="isConversationLoading" class="messages-skeleton">
+                  <div class="message-skeleton user">
+                    <div class="avatar-col" />
+                    <NSkeleton class="skeleton-bubble" :sharp="false" height="40px" width="38%" />
+                    <div class="avatar-col">
+                      <NSkeleton circle width="36px" height="36px" />
+                    </div>
+                  </div>
+                  <div class="message-skeleton assistant">
+                    <div class="avatar-col">
+                      <NSkeleton circle width="36px" height="36px" />
+                    </div>
+                    <div class="skeleton-bubble skeleton-bubble--wide">
+                      <NSkeleton text :repeat="3" />
+                    </div>
+                    <div class="avatar-col" />
+                  </div>
+                  <div class="message-skeleton user">
+                    <div class="avatar-col" />
+                    <NSkeleton class="skeleton-bubble" :sharp="false" height="40px" width="32%" />
+                    <div class="avatar-col">
+                      <NSkeleton circle width="36px" height="36px" />
+                    </div>
+                  </div>
+                  <div class="message-skeleton assistant">
+                    <div class="avatar-col">
+                      <NSkeleton circle width="36px" height="36px" />
+                    </div>
+                    <div class="skeleton-bubble skeleton-bubble--wide">
+                      <NSkeleton text :repeat="2" />
+                    </div>
+                    <div class="avatar-col" />
+                  </div>
+                </div>
 
-              <template v-else>
-                <MessageBubble
-                    v-for="(msg, idx) in messages"
-                    :key="idx"
-                    :role="msg.role"
-                    :content="msg.content"
-                    :html="msg.role === 'assistant' ? renderMarkdown(msg.content) : ''"
-                    :isStreaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
-                    :prompt-tokens="msg.prompt_tokens"
-                    :completion-tokens="msg.completion_tokens"
-                    :reasoning-tokens="msg.reasoning_tokens"
-                />
-              </template>
+                <div v-else-if="messages.length === 0" class="welcome">
+                  <div class="welcome-brand">
+                    <icon-custom-logo-new text-36 color-primary flex-shrink-0 />
+                    <p class="welcome-greeting">
+                      我是
+                      <span class="welcome-app-name">{{ $t('app_name') }}</span>
+                      智能助手，很高兴见到你！
+                    </p>
+                  </div>
+                  <ChatKbPicker
+                      v-model="selectedKBs"
+                      class="welcome-kb-picker"
+                      :items="knowledgeBases"
+                  />
+                </div>
+
+                <template v-else>
+                  <div
+                      v-for="(msg, idx) in messages"
+                      :key="idx"
+                      :data-user-turn="msg.role === 'user' ? userTurnIndexForMessage(idx) : undefined"
+                  >
+                    <MessageBubble
+                        :role="msg.role"
+                        :content="msg.content"
+                        :html="msg.role === 'assistant' ? renderMarkdown(msg.content) : ''"
+                        :isStreaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
+                        :prompt-tokens="msg.prompt_tokens"
+                        :completion-tokens="msg.completion_tokens"
+                        :reasoning-tokens="msg.reasoning_tokens"
+                    />
+                  </div>
+                </template>
+              </div>
             </div>
 
             <div class="input-area">
@@ -692,9 +795,27 @@ function renderMarkdown(text) {
   padding: 0 24px;
 }
 
+.messages-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.turn-nodes-rail {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  z-index: 3;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
 .messages-area {
   flex: 1;
   min-height: 0;
+  width: 100%;
   overflow-y: auto;
   /* 滚动条样式 */
   scrollbar-width: thin; /* 火狐：细滚动条 */
