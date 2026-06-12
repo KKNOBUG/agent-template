@@ -182,3 +182,4 @@ class ChatRequest(BaseModel):
         description="关联知识库ID列表；传 [] 表示清空绑定，不传则沿用会话已存值",
     )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")
+    enable_thinking: bool = Field(default=False, description="是否开启深度思考模式")

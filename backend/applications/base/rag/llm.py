@@ -15,6 +15,22 @@ import httpx
 from backend.configure import PROJECT_CONFIG
 
 
+def _supports_thinking_mode(model: str) -> bool:
+    name = (model or "").strip().lower()
+    return name.startswith("deepseek-v4") or name in {"deepseek-chat", "deepseek-reasoner"}
+
+
+def _apply_thinking_params(payload: Dict[str, Any], model: str, enable_thinking: bool) -> None:
+    """DeepSeek V4 默认开启思考，关闭时需显式传 disabled。"""
+    if not _supports_thinking_mode(model):
+        return
+    if enable_thinking:
+        payload["thinking"] = {"type": "enabled"}
+        payload["reasoning_effort"] = "high"
+    else:
+        payload["thinking"] = {"type": "disabled"}
+
+
 def parse_usage_from_chunk(chunk: dict) -> Dict[str, int] | None:
     """从流式或非流式响应 chunk 中解析 token 用量"""
     usage = chunk.get("usage")
@@ -49,6 +65,7 @@ class OpenAICompatibleLLM:
             temperature: float = 0.7,
             max_tokens: int = 2048,
             top_p: float = 0.95,
+            enable_thinking: bool = False,
     ) -> str:
         """
         非流式对话
@@ -67,16 +84,19 @@ class OpenAICompatibleLLM:
 
         import requests
 
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p,
+        }
+        _apply_thinking_params(payload, self.model, enable_thinking)
+
         resp = requests.post(
-            f"{self.base_url}/chat/completions",
+            self.base_url,
             headers=self._get_headers(),
-            json={
-                "model": self.model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "top_p": top_p,
-            },
+            json=payload,
             timeout=60,
         )
 
@@ -91,6 +111,7 @@ class OpenAICompatibleLLM:
             temperature: float = 0.7,
             max_tokens: int = 2048,
             top_p: float = 0.95,
+            enable_thinking: bool = False,
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         流式对话
@@ -108,20 +129,23 @@ class OpenAICompatibleLLM:
         if not self.api_key:
             raise ValueError("LLM_API_KEY 未设置")
 
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        _apply_thinking_params(payload, self.model, enable_thinking)
+
         async with httpx.AsyncClient() as client:
             async with client.stream(
                     "POST",
-                    f"{self.base_url}/chat/completions",
+                    self.base_url,
                     headers=self._get_headers(),
-                    json={
-                        "model": self.model,
-                        "messages": messages,
-                        "temperature": temperature,
-                        "max_tokens": max_tokens,
-                        "top_p": top_p,
-                        "stream": True,
-                        "stream_options": {"include_usage": True},
-                    },
+                    json=payload,
                     timeout=60,
             ) as response:
                 if response.status_code != 200:

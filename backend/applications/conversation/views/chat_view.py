@@ -47,7 +47,11 @@ async def chat_stream(
         try:
             # 2.2 流式生成内容（核心）
             async for chunk in conversation_crud.stream_response(
-                    req.question, knowledge_base_ids, chat_history, model_config
+                    req.question,
+                    knowledge_base_ids,
+                    chat_history,
+                    model_config,
+                    enable_thinking=req.enable_thinking,
             ):
                 if chunk.get("type") == "content":
                     token = chunk.get("content", "")

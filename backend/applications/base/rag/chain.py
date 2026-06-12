@@ -231,6 +231,7 @@ async def rag_stream(
         top_k: int = 5,
         score_threshold: float = 0.0,
         max_history_rounds: int = 10,
+        enable_thinking: bool = False,
 ) -> AsyncIterator[Dict[str, Any]]:
     """
     流式RAG问答
@@ -305,5 +306,6 @@ async def rag_stream(
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
+            enable_thinking=enable_thinking,
     ):
         yield chunk

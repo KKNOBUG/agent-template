@@ -6,7 +6,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { NButton, NLayout, NLayoutContent, NLayoutSider, NSkeleton } from 'naive-ui'
 import MessageBubble from '../../components/MessageBubble.vue'
-import ChatKbPicker from '../../components/chat/ChatKbPicker.vue'
+import ChatFeaturePicker from '../../components/chat/ChatFeaturePicker.vue'
+import ChatDeepThinkingToggle from '../../components/chat/ChatDeepThinkingToggle.vue'
 import ChatTurnNodes from '../../components/chat/ChatTurnNodes.vue'
 import CommonPage from '@/components/page/CommonPage.vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
@@ -39,7 +40,20 @@ function normalizeConversationId(id) {
 const knowledgeBases = ref([])
 const modelConfigs = ref([])
 const selectedKBs = ref([])
+const selectedSkills = ref([])
+const selectedMcps = ref([])
+const enableDeepThinking = ref(false)
+const skillItems = ref([])
+const mcpItems = ref([])
 const selectedModelConfig = ref('')
+
+const kbPickerItems = computed(() =>
+    knowledgeBases.value.map((kb) => ({
+      id: kb.id,
+      label: kb.knowledge_name,
+      tag: kb.document_count != null ? `${kb.document_count} 篇文档` : undefined,
+    })),
+)
 
 // 从URL获取对话ID
 const conversationId = ref(normalizeConversationId(route.query.conversation))
@@ -416,6 +430,7 @@ async function sendMessage() {
       currentConvId,
       selectedKBs.value,
       selectedModelConfig.value,
+      enableDeepThinking.value,
       {
         onMeta(data) {
           if (data.conversation_id && !currentConvId) {
@@ -631,10 +646,36 @@ function renderMarkdown(text) {
                   />
                   <div class="input-box-actions">
                     <div class="input-box-actions-left">
-                      <ChatKbPicker
+                      <ChatFeaturePicker
                           v-model="selectedKBs"
-                          :items="knowledgeBases"
+                          icon="hugeicons:book-open-02"
+                          title="选择知识库"
+                          search-placeholder="搜索知识库..."
+                          empty-text="暂无可用知识库"
+                          no-match-text="未找到匹配的知识库"
+                          :items="kbPickerItems"
                       />
+                      <ChatFeaturePicker
+                          v-model="selectedSkills"
+                          icon="hugeicons:magic-wand-01"
+                          title="选择 Skills"
+                          search-placeholder="搜索 Skills..."
+                          empty-text="暂无可用 Skills"
+                          no-match-text="未找到匹配的 Skills"
+                          :items="skillItems"
+                          allow-empty
+                      />
+                      <ChatFeaturePicker
+                          v-model="selectedMcps"
+                          icon="hugeicons:wrench-01"
+                          title="选择 MCP 服务"
+                          search-placeholder="搜索 MCP 服务..."
+                          empty-text="暂无可用 MCP 服务"
+                          no-match-text="未找到匹配的 MCP 服务"
+                          :items="mcpItems"
+                          allow-empty
+                      />
+                      <ChatDeepThinkingToggle v-model="enableDeepThinking" />
                     </div>
                     <button
                         class="send-btn"
@@ -840,7 +881,7 @@ function renderMarkdown(text) {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 25vh;
+  padding-top: 15vh;
   overflow: hidden;
 }
 

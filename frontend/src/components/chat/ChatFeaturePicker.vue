@@ -4,6 +4,26 @@ import { NCheckbox, NPopover } from 'naive-ui'
 import TheIcon from '@/components/icon/TheIcon.vue'
 
 const props = defineProps({
+  icon: {
+    type: String,
+    required: true,
+  },
+  title: {
+    type: String,
+    default: '',
+  },
+  searchPlaceholder: {
+    type: String,
+    default: '搜索...',
+  },
+  emptyText: {
+    type: String,
+    default: '暂无可用项',
+  },
+  noMatchText: {
+    type: String,
+    default: '未找到匹配项',
+  },
   items: {
     type: Array,
     default: () => [],
@@ -11,6 +31,10 @@ const props = defineProps({
   modelValue: {
     type: Array,
     default: () => [],
+  },
+  allowEmpty: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -23,8 +47,17 @@ const filteredItems = computed(() => {
   const keyword = searchText.value.trim().toLowerCase()
   if (!keyword) return props.items
   return props.items.filter((item) =>
-      (item.knowledge_name || '').toLowerCase().includes(keyword),
+      (item.label || '').toLowerCase().includes(keyword),
   )
+})
+
+const isActive = computed(() => props.modelValue.length > 0)
+
+const isUnavailable = computed(() => props.items.length === 0 && !props.allowEmpty)
+
+const triggerTitle = computed(() => {
+  if (props.items.length === 0) return props.emptyText
+  return `${props.title}（已选 ${props.modelValue.length}/${props.items.length}）`
 })
 
 function isSelected(id) {
@@ -56,37 +89,37 @@ watch(showPopover, (visible) => {
       placement="top-start"
       :show-arrow="true"
       raw
-      :disabled="items.length === 0"
+      :disabled="isUnavailable"
   >
     <template #trigger>
       <button
           type="button"
-          class="chat-kb-trigger"
-          :class="{ 'is-active': modelValue.length > 0 }"
-          :disabled="items.length === 0"
-          :title="items.length === 0 ? '暂无可用知识库' : `选择知识库（已选 ${modelValue.length}/${items.length}）`"
+          class="chat-feature-trigger"
+          :class="{ 'is-active': isActive }"
+          :disabled="isUnavailable"
+          :title="triggerTitle"
       >
-        <TheIcon icon="hugeicons:book-open-02" :size="18" color="#fff" />
+        <TheIcon :icon="icon" :size="18" color="#fff" />
       </button>
     </template>
 
-    <div class="chat-kb-panel">
-      <div class="chat-kb-search">
-        <TheIcon icon="material-symbols:search" :size="16" color="var(--chat-muted-text)" />
+    <div class="chat-feature-panel">
+      <div class="chat-feature-search">
+        <TheIcon icon="material-symbols:search" :size="14" color="var(--chat-muted-text)" />
         <input
             v-model="searchText"
-            class="chat-kb-search-input"
+            class="chat-feature-search-input"
             type="text"
-            placeholder="搜索知识库..."
+            :placeholder="searchPlaceholder"
             @click.stop
         />
       </div>
 
-      <div v-if="filteredItems.length > 0" class="chat-kb-list">
+      <div v-if="filteredItems.length > 0" class="chat-feature-list">
         <div
             v-for="item in filteredItems"
             :key="item.id"
-            class="chat-kb-item"
+            class="chat-feature-item"
             :class="{ 'is-selected': isSelected(item.id) }"
             @click="toggleItem(item.id)"
         >
@@ -95,18 +128,16 @@ watch(showPopover, (visible) => {
               @click.stop
               @update:checked="toggleItem(item.id)"
           />
-          <span class="chat-kb-item-name">{{ item.knowledge_name }}</span>
-          <span v-if="item.document_count != null" class="chat-kb-item-tag">
-            {{ item.document_count }} 篇文档
-          </span>
+          <span class="chat-feature-item-name">{{ item.label }}</span>
+          <span v-if="item.tag" class="chat-feature-item-tag">{{ item.tag }}</span>
         </div>
       </div>
 
-      <div v-else class="chat-kb-empty">
-        {{ searchText.trim() ? '未找到匹配的知识库' : '暂无可用知识库' }}
+      <div v-else class="chat-feature-empty">
+        {{ searchText.trim() ? noMatchText : emptyText }}
       </div>
 
-      <div class="chat-kb-footer">
+      <div class="chat-feature-footer">
         已选 {{ modelValue.length }} / {{ items.length }}
       </div>
     </div>
@@ -114,7 +145,7 @@ watch(showPopover, (visible) => {
 </template>
 
 <style scoped>
-.chat-kb-trigger {
+.chat-feature-trigger {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,134 +162,135 @@ watch(showPopover, (visible) => {
   transition: background-color 0.2s, opacity 0.2s;
 }
 
-.chat-kb-trigger.is-active {
+.chat-feature-trigger.is-active {
   opacity: 1;
 }
 
-.chat-kb-trigger.is-active:hover:not(:disabled) {
+.chat-feature-trigger.is-active:hover:not(:disabled) {
   background: var(--primary-color-hover, #f76b3c);
 }
 
-.chat-kb-trigger:disabled {
+.chat-feature-trigger:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.chat-kb-trigger :deep(.n-icon) {
+.chat-feature-trigger :deep(.n-icon) {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.chat-kb-panel {
-  width: 320px;
-  padding: 10px;
-  border-radius: 12px;
+.chat-feature-panel {
+  width: 300px;
+  padding: 8px;
+  border-radius: 10px;
   background: var(--chat-input-surface, #fff);
   border: 1px solid var(--chat-input-border, #e8e8e8);
   box-shadow: var(--chat-input-shadow, 0 8px 24px rgba(0, 0, 0, 0.12));
 }
 
-.chat-kb-search {
+.chat-feature-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--chat-input-border, #e8e8e8);
+  border-radius: 6px;
+  background: var(--chat-input-surface, #fff);
+}
+
+.chat-feature-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--n-text-color, #333);
+}
+
+.chat-feature-search-input::placeholder {
+  color: var(--chat-muted-text, #a3a3a3);
+}
+
+.chat-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  margin-top: 8px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ccc transparent;
+}
+
+.chat-feature-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.chat-feature-list::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.chat-feature-item {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
   border: 1px solid var(--chat-input-border, #e8e8e8);
   border-radius: 8px;
-  background: var(--chat-input-surface, #fff);
-}
-
-.chat-kb-search-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: 13px;
-  color: var(--n-text-color, #333);
-}
-
-.chat-kb-search-input::placeholder {
-  color: var(--chat-muted-text, #a3a3a3);
-}
-
-.chat-kb-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 240px;
-  margin-top: 10px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #ccc transparent;
-}
-
-.chat-kb-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-kb-list::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 3px;
-}
-
-.chat-kb-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--chat-input-border, #e8e8e8);
-  border-radius: 10px;
   cursor: pointer;
   transition: border-color 0.2s, background-color 0.2s;
 }
 
-.chat-kb-item:hover {
+.chat-feature-item:hover {
   border-color: color-mix(in srgb, var(--primary-color, #f4511e) 30%, var(--chat-input-border, #e8e8e8));
 }
 
-.chat-kb-item.is-selected {
+.chat-feature-item.is-selected {
   border-color: var(--primary-color, #f4511e);
   background: color-mix(in srgb, var(--primary-color, #f4511e) 8%, var(--chat-input-surface, #fff));
 }
 
-.chat-kb-item-name {
+.chat-feature-item-name {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
+  line-height: 18px;
   color: var(--n-text-color, #333);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chat-kb-item-tag {
+.chat-feature-item-tag {
   flex-shrink: 0;
-  padding: 2px 8px;
+  padding: 1px 6px;
   border: 1px solid color-mix(in srgb, var(--primary-color, #f4511e) 40%, transparent);
   border-radius: 999px;
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 10px;
+  line-height: 14px;
   color: var(--primary-color, #f4511e);
   white-space: nowrap;
 }
 
-.chat-kb-empty {
-  margin-top: 10px;
-  padding: 24px 12px;
+.chat-feature-empty {
+  margin-top: 8px;
+  padding: 20px 10px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--n-text-color-3, #999);
 }
 
-.chat-kb-footer {
-  margin-top: 10px;
-  padding-top: 8px;
+.chat-feature-footer {
+  margin-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid var(--chat-input-border, #e8e8e8);
   text-align: right;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--chat-muted-text, #a3a3a3);
 }
 </style>

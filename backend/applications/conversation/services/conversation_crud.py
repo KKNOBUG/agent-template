@@ -231,6 +231,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         knowledge_base_ids: List[str],
         chat_history: List[dict],
         model_config: Optional[ModelConfig],
+        enable_thinking: bool = False,
     ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成聊天回复"""
         if model_config:
@@ -246,7 +247,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             }
         else:
             llm_params = {
-                "model_name": "deepseek-chat",
+                "model_name": "deepseek-v4-flash",
                 "temperature": 0.7,
                 "max_tokens": 4096,
                 "top_p": 0.95,
@@ -260,6 +261,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             question=question,
             knowledge_base_ids=knowledge_base_ids,
             chat_history=chat_history,
+            enable_thinking=enable_thinking,
             **llm_params,
         ):
             yield chunk

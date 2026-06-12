@@ -79,6 +79,7 @@ export function chatStream(
     conversationId,
     knowledgeBaseIds = [],
     modelConfigId = null,
+    enableThinking = false,
     { onToken, onMeta, onDone, onError }
 ) {
   const controller = new AbortController()
@@ -95,6 +96,7 @@ export function chatStream(
       conversation_id: conversationId,
       knowledge_base_ids: knowledgeBaseIds,
       model_config_id: modelConfigId,
+      enable_thinking: enableThinking,
     }),
     signal: controller.signal,
   })
