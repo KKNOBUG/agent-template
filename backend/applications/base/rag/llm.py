@@ -8,10 +8,25 @@
 """
 """LLM API封装 - 支持OpenAI兼容格式"""
 
-from typing import AsyncIterator, List, Dict
+from typing import AsyncIterator, List, Dict, Any
+import json
 import httpx
 
 from backend.configure import PROJECT_CONFIG
+
+
+def parse_usage_from_chunk(chunk: dict) -> Dict[str, int] | None:
+    """从流式或非流式响应 chunk 中解析 token 用量"""
+    usage = chunk.get("usage")
+    if not usage:
+        return None
+    details = usage.get("completion_tokens_details") or {}
+    reasoning = details.get("reasoning_tokens") or 0
+    return {
+        "prompt_tokens": usage.get("prompt_tokens", 0) or 0,
+        "completion_tokens": usage.get("completion_tokens", 0) or 0,
+        "reasoning_tokens": reasoning or 0,
+    }
 
 
 class OpenAICompatibleLLM:
@@ -76,7 +91,7 @@ class OpenAICompatibleLLM:
             temperature: float = 0.7,
             max_tokens: int = 2048,
             top_p: float = 0.95,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[Dict[str, Any]]:
         """
         流式对话
 
@@ -87,7 +102,8 @@ class OpenAICompatibleLLM:
             top_p: top-p采样
 
         Yields:
-            模型回复的文本片段
+            {"type": "content", "content": "..."} 或
+            {"type": "usage", "prompt_tokens": N, "completion_tokens": N, "reasoning_tokens": N}
         """
         if not self.api_key:
             raise ValueError("LLM_API_KEY 未设置")
@@ -104,6 +120,7 @@ class OpenAICompatibleLLM:
                         "max_tokens": max_tokens,
                         "top_p": top_p,
                         "stream": True,
+                        "stream_options": {"include_usage": True},
                     },
                     timeout=60,
             ) as response:
@@ -117,12 +134,15 @@ class OpenAICompatibleLLM:
                         if data == "[DONE]":
                             break
                         try:
-                            import json
                             chunk = json.loads(data)
-                            content = chunk["choices"][0]["delta"].get("content", "")
+                            delta = chunk["choices"][0].get("delta", {})
+                            content = delta.get("content", "")
                             if content:
-                                yield content
-                        except:
+                                yield {"type": "content", "content": content}
+                            usage = parse_usage_from_chunk(chunk)
+                            if usage:
+                                yield {"type": "usage", **usage}
+                        except (json.JSONDecodeError, KeyError, IndexError, TypeError):
                             pass
 
 

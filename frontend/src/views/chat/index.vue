@@ -186,6 +186,9 @@ async function loadConversation(id) {
     messages.value = detail.messages.map(m => ({
       role: m.role,
       content: m.content,
+      prompt_tokens: m.prompt_tokens,
+      completion_tokens: m.completion_tokens,
+      reasoning_tokens: m.reasoning_tokens,
     }))
     if (detail.knowledge_base_ids != null) {
       selectedKBs.value = detail.knowledge_base_ids
@@ -320,7 +323,12 @@ async function sendMessage() {
           messages.value[assistantIdx].content += token
           nextTick(scrollToBottom)
         },
-        onDone() {
+        onDone(data) {
+          if (data?.usage) {
+            messages.value[assistantIdx].prompt_tokens = data.usage.prompt_tokens
+            messages.value[assistantIdx].completion_tokens = data.usage.completion_tokens
+            messages.value[assistantIdx].reasoning_tokens = data.usage.reasoning_tokens
+          }
           isLoading.value = false
           streamController = null
           if (currentConvId) {
@@ -467,6 +475,9 @@ function renderMarkdown(text) {
                     :content="msg.content"
                     :html="msg.role === 'assistant' ? renderMarkdown(msg.content) : ''"
                     :isStreaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
+                    :prompt-tokens="msg.prompt_tokens"
+                    :completion-tokens="msg.completion_tokens"
+                    :reasoning-tokens="msg.reasoning_tokens"
                 />
               </template>
             </div>

@@ -52,6 +52,9 @@ class Message(ScaffoldModel, StateModel, TimestampMixin):
     )
     role = fields.CharEnumField(ChatMessageRole, max_length=20, description="消息角色")
     content = fields.TextField(description="消息内容")
+    prompt_tokens = fields.IntField(null=True, description="输入Token数(Prompt)")
+    completion_tokens = fields.IntField(null=True, description="输出Token数(Completion)")
+    reasoning_tokens = fields.IntField(null=True, description="推理Token数(Thinking/Reasoning)")
 
     class Meta:
         table = "keenrobot_messages"

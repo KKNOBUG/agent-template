@@ -27,6 +27,7 @@ async def chat_stream(
     # 2. 定义异步生成器：惰性执行，不立即运行
     async def event_generator():
         full_response = ""
+        usage_data = None
 
         # 2.1 发送元数据事件（第一个事件）
         yield {
@@ -36,17 +37,22 @@ async def chat_stream(
 
         try:
             # 2.2 流式生成内容（核心）
-            # conversation_crud.stream_response() 调用 rag_stream()
-            # rag_stream() 调用 llm.stream_chat()
-            # llm.stream_chat() 使用 httpx.AsyncClient().stream() 接收 LLM 流式响应
-            async for token in conversation_crud.stream_response(
+            async for chunk in conversation_crud.stream_response(
                     req.question, knowledge_base_ids, chat_history, model_config
             ):
-                full_response += token
-                yield {
-                    "event": "token",
-                    "data": json.dumps({"type": "token", "content": token}),
-                }
+                if chunk.get("type") == "content":
+                    token = chunk.get("content", "")
+                    full_response += token
+                    yield {
+                        "event": "token",
+                        "data": json.dumps({"type": "token", "content": token}),
+                    }
+                elif chunk.get("type") == "usage":
+                    usage_data = {
+                        "prompt_tokens": chunk.get("prompt_tokens"),
+                        "completion_tokens": chunk.get("completion_tokens"),
+                        "reasoning_tokens": chunk.get("reasoning_tokens"),
+                    }
         except Exception as e:
             print(f"[chat_stream] 错误: {e}")
             # 2.3 错误处理
@@ -58,14 +64,23 @@ async def chat_stream(
 
         # 2.4 保存完整回复到数据库
         try:
-            await conversation_crud.save_assistant_message(conversation_id, full_response)
+            await conversation_crud.save_assistant_message(
+                conversation_id,
+                full_response,
+                prompt_tokens=usage_data.get("prompt_tokens") if usage_data else None,
+                completion_tokens=usage_data.get("completion_tokens") if usage_data else None,
+                reasoning_tokens=usage_data.get("reasoning_tokens") if usage_data else None,
+            )
         except Exception as e:
             print(f"[chat_stream] 保存消息失败: {e}")
 
         # 2.5 发送完成事件
+        done_payload = {"type": "done", "content": full_response}
+        if usage_data:
+            done_payload["usage"] = usage_data
         yield {
             "event": "done",
-            "data": json.dumps({"type": "done", "content": full_response}),
+            "data": json.dumps(done_payload),
         }
 
     # 3. 返回 SSE 响应

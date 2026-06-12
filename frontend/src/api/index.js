@@ -140,7 +140,7 @@ export function chatStream(
                 const data = JSON.parse(dataStr)
                 if (eventType === 'token' && onToken) onToken(data.content)
                 else if (eventType === 'meta' && onMeta) onMeta(data)
-                else if (eventType === 'done' && onDone) onDone(data.content)
+                else if (eventType === 'done' && onDone) onDone(data)
                 else if (eventType === 'error' && onError) onError(new Error(data.message))
               } catch {
                 // ignore parse errors

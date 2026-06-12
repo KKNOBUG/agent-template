@@ -11,7 +11,7 @@
 import re
 import asyncio
 from collections.abc import AsyncIterator
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from backend.configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
 from backend.applications.base.rag.embeddings import get_single_embedding, is_embedding_configured
@@ -231,7 +231,7 @@ async def rag_stream(
         top_k: int = 5,
         score_threshold: float = 0.0,
         max_history_rounds: int = 10,
-) -> AsyncIterator[str]:
+) -> AsyncIterator[Dict[str, Any]]:
     """
     流式RAG问答
 
@@ -249,7 +249,7 @@ async def rag_stream(
         max_history_rounds: 保留历史对话轮数
 
     Yields:
-        模型回答的文本片段
+        {"type": "content", "content": "..."} 或 usage 字典
     """
     # 0. 检查是否为无关问题
     if is_irrelevant_question(question):
@@ -259,7 +259,7 @@ async def rag_stream(
         await asyncio.sleep(1.5)
         # 逐字输出以模拟流式效果，添加小延迟
         for char in response:
-            yield char
+            yield {"type": "content", "content": char}
             # 标点符号后稍长延迟
             if char in ['，', '。', '！', '？', '：', '\n']:
                 await asyncio.sleep(0.05)

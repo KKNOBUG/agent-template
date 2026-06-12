@@ -6,7 +6,7 @@
 @Module  : conversation_crud.py
 @DateTime: 2026/6/9
 """
-from typing import AsyncIterator, List, Optional
+from typing import AsyncIterator, List, Optional, Dict, Any
 
 from tortoise.query_utils import Prefetch
 
@@ -41,11 +41,23 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
         ).order_by("created_time")
 
     async def add_message(
-        self, conversation_id: str, role: ChatMessageRole, content: str
+        self,
+        conversation_id: str,
+        role: ChatMessageRole,
+        content: str,
+        *,
+        prompt_tokens: Optional[int] = None,
+        completion_tokens: Optional[int] = None,
+        reasoning_tokens: Optional[int] = None,
     ) -> Message:
         """添加消息"""
         data = MessageCreate(
-            conversation_id=conversation_id, role=role, content=content
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            reasoning_tokens=reasoning_tokens,
         )
         return await self.create(data.create_dict())
 
@@ -212,7 +224,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         knowledge_base_ids: List[str],
         chat_history: List[dict],
         model_config: Optional[ModelConfig],
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成聊天回复"""
         if model_config:
             llm_params = {
@@ -237,16 +249,29 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
                 "max_history_rounds": 10,
             }
 
-        async for token in rag_stream(
+        async for chunk in rag_stream(
             question=question,
             knowledge_base_ids=knowledge_base_ids,
             chat_history=chat_history,
             **llm_params,
         ):
-            yield token
+            yield chunk
 
-    async def save_assistant_message(self, conversation_id: str, content: str) -> None:
+    async def save_assistant_message(
+        self,
+        conversation_id: str,
+        content: str,
+        *,
+        prompt_tokens: Optional[int] = None,
+        completion_tokens: Optional[int] = None,
+        reasoning_tokens: Optional[int] = None,
+    ) -> None:
         """保存助手回复消息"""
         await self.message.add_message(
-            conversation_id, ChatMessageRole.ASSISTANT, content
+            conversation_id,
+            ChatMessageRole.ASSISTANT,
+            content,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            reasoning_tokens=reasoning_tokens,
         )

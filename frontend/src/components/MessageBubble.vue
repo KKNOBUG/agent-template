@@ -4,7 +4,18 @@ defineProps({
   content: String,
   html: String,
   isStreaming: Boolean,
+  promptTokens: Number,
+  completionTokens: Number,
+  reasoningTokens: Number,
 })
+
+function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
+  return (
+      promptTokens != null
+      || completionTokens != null
+      || (reasoningTokens != null && reasoningTokens > 0)
+  )
+}
 </script>
 
 <template>
@@ -18,6 +29,32 @@ defineProps({
       <div v-if="role === 'assistant'" class="markdown-body bubble-content" v-html="html"></div>
       <div v-else class="text-content bubble-content">{{ content }}</div>
       <span v-if="isStreaming" class="cursor-blink"></span>
+      <div
+          v-if="role === 'assistant' && hasTokenUsage(promptTokens, completionTokens, reasoningTokens)"
+          class="token-usage"
+      >
+        <span v-if="promptTokens != null" class="token-badge token-badge--prompt">
+          <svg class="token-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 19V5M12 5l-6 6M12 5l6 6" />
+          </svg>
+          {{ promptTokens }}
+        </span>
+        <span v-if="completionTokens != null" class="token-badge token-badge--completion">
+          <svg class="token-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 5v14M12 19l-6-6M12 19l6-6" />
+          </svg>
+          {{ completionTokens }}
+        </span>
+        <span v-if="reasoningTokens != null && reasoningTokens > 0" class="token-badge token-badge--reasoning">
+          <svg class="token-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+          {{ reasoningTokens }}
+        </span>
+      </div>
     </div>
     <div class="avatar-col">
       <div v-if="role === 'user'" class="avatar avatar--user">
@@ -110,6 +147,46 @@ defineProps({
   line-height: 20px;
 }
 
+.token-usage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  padding-left: 2px;
+}
+
+.token-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.token-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.token-badge--prompt {
+  background: rgba(24, 144, 255, 0.12);
+  color: #1890ff;
+}
+
+.token-badge--completion {
+  background: rgba(82, 196, 26, 0.12);
+  color: #52c41a;
+}
+
+.token-badge--reasoning {
+  background: rgba(250, 140, 22, 0.12);
+  color: #fa8c16;
+}
+
 .cursor-blink {
   display: inline-block;
   width: 7px;
@@ -135,5 +212,17 @@ defineProps({
   background: rgba(244, 81, 30, 0.12);
   color: #e2e8f0;
   border-color: rgba(244, 81, 30, 0.2);
+}
+
+:global(html.dark) .token-badge--prompt {
+  background: rgba(24, 144, 255, 0.18);
+}
+
+:global(html.dark) .token-badge--completion {
+  background: rgba(82, 196, 26, 0.18);
+}
+
+:global(html.dark) .token-badge--reasoning {
+  background: rgba(250, 140, 22, 0.18);
 }
 </style>

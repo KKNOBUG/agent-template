@@ -84,6 +84,9 @@ class ConversationDetail(ConversationOut):
 class MessageBase(BaseModel):
     role: Optional[ChatMessageRole] = Field(default=None, description="消息角色")
     content: Optional[str] = Field(default=None, description="消息内容")
+    prompt_tokens: Optional[int] = Field(default=None, description="输入Token数")
+    completion_tokens: Optional[int] = Field(default=None, description="输出Token数")
+    reasoning_tokens: Optional[int] = Field(default=None, description="推理Token数")
 
 
 class MessageCreate(MessageBase):
@@ -109,10 +112,19 @@ class MessageSelect(MessageBase):
     order: Optional[list] = Field(default=["created_time"], description="排序字段")
 
 
+class TokenUsage(BaseModel):
+    prompt_tokens: Optional[int] = Field(default=None, description="输入Token数(Prompt)")
+    completion_tokens: Optional[int] = Field(default=None, description="输出Token数(Completion)")
+    reasoning_tokens: Optional[int] = Field(default=None, description="推理Token数(Thinking/Reasoning)")
+
+
 class MessageOut(BaseModel):
     id: int = Field(..., description="消息ID")
     role: ChatMessageRole = Field(..., description="消息角色")
     content: str = Field(..., description="消息内容")
+    prompt_tokens: Optional[int] = Field(default=None, description="输入Token数(Prompt)")
+    completion_tokens: Optional[int] = Field(default=None, description="输出Token数(Completion)")
+    reasoning_tokens: Optional[int] = Field(default=None, description="推理Token数(Thinking/Reasoning)")
     created_time: datetime = Field(..., description="创建时间", serialization_alias="created_at")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
