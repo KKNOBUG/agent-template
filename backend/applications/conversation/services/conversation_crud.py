@@ -15,13 +15,20 @@ from backend.applications.base.services.scaffold import ScaffoldCrud
 from backend.applications.conversation.models.conversation_model import Conversation, Message
 from backend.applications.conversation.schemas.conversation_schema import (
     ChatRequest,
+    ConversationBrief,
     ConversationCreate,
     ConversationDetail,
+    ConversationStatOut,
     ConversationUpdate,
+    KnowledgeBaseBrief,
     MessageCreate,
     MessageUpdate,
+    ModelConfigBrief,
+    TokenUsage,
+    UserBrief,
     normalize_knowledge_base_ids,
 )
+from backend.applications.knowledge_base.models.knowledge_base_model import KnowledgeBase
 from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
 from backend.applications.model_config.models.model_config_model import ModelConfig
 from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
@@ -275,3 +282,95 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             completion_tokens=completion_tokens,
             reasoning_tokens=reasoning_tokens,
         )
+
+    async def list_conversation_stats_by_user(
+        self,
+        user_id: int,
+        page: int = 1,
+        page_size: int = 10,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+    ) -> tuple[int, List[ConversationStatOut]]:
+        """按用户 ID 分页查询各对话的统计详情（轮次、Token 消耗等）"""
+        user = await User.get_or_none(id=user_id)
+        if not user:
+            raise NotFoundException(message="用户不存在")
+
+        qs = self.model.filter(user_id=user_id, state__not=1)
+        if start_time and end_time:
+            qs = qs.filter(updated_time__range=[start_time, end_time])
+        elif start_time:
+            qs = qs.filter(updated_time__gte=start_time)
+        elif end_time:
+            qs = qs.filter(updated_time__lte=end_time)
+
+        total = await qs.count()
+        conversations = (
+            await qs.prefetch_related(
+                "model_config",
+                Prefetch("messages", Message.filter(state__not=1)),
+            )
+            .order_by("-updated_time")
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+
+        all_kb_ids: set[str] = set()
+        for conv in conversations:
+            all_kb_ids.update(self.get_knowledge_base_ids(conv))
+
+        kb_map: dict[str, KnowledgeBase] = {}
+        if all_kb_ids:
+            kbs = await KnowledgeBase.filter(id__in=list(all_kb_ids))
+            kb_map = {kb.id: kb for kb in kbs}
+
+        user_brief = UserBrief(id=user.id, username=user.username, alias=user.alias)
+        results: List[ConversationStatOut] = []
+
+        for conv in conversations:
+            assistant_msgs = [
+                m for m in conv.messages if m.role == ChatMessageRole.ASSISTANT
+            ]
+            prompt_sum = sum(m.prompt_tokens or 0 for m in assistant_msgs)
+            completion_sum = sum(m.completion_tokens or 0 for m in assistant_msgs)
+            reasoning_sum = sum(m.reasoning_tokens or 0 for m in assistant_msgs)
+
+            kb_briefs: List[KnowledgeBaseBrief] = []
+            for kb_id in self.get_knowledge_base_ids(conv):
+                kb = kb_map.get(kb_id)
+                if kb:
+                    kb_briefs.append(
+                        KnowledgeBaseBrief(
+                            id=kb.id,
+                            name=kb.knowledge_name,
+                            description=kb.description,
+                        )
+                    )
+                else:
+                    kb_briefs.append(KnowledgeBaseBrief(id=kb_id))
+
+            model_brief = None
+            if conv.model_config:
+                model_brief = ModelConfigBrief(
+                    id=conv.model_config.id,
+                    name=conv.model_config.name,
+                    description=conv.model_config.description,
+                )
+
+            results.append(
+                ConversationStatOut(
+                    conversation=ConversationBrief(id=conv.id, title=conv.title),
+                    model_config_info=model_brief,
+                    knowledge_bases=kb_briefs,
+                    round_count=len(assistant_msgs),
+                    token_usage=TokenUsage(
+                        prompt_tokens=prompt_sum,
+                        completion_tokens=completion_sum,
+                        reasoning_tokens=reasoning_sum,
+                        total_tokens=prompt_sum + completion_sum + reasoning_sum,
+                    ),
+                    user=user_brief,
+                )
+            )
+
+        return total, results

@@ -116,6 +116,52 @@ class TokenUsage(BaseModel):
     prompt_tokens: Optional[int] = Field(default=None, description="输入Token数(Prompt)")
     completion_tokens: Optional[int] = Field(default=None, description="输出Token数(Completion)")
     reasoning_tokens: Optional[int] = Field(default=None, description="推理Token数(Thinking/Reasoning)")
+    total_tokens: Optional[int] = Field(default=None, description="Token总消耗量")
+
+
+class ConversationBrief(BaseModel):
+    id: str = Field(..., description="对话ID")
+    title: str = Field(..., description="对话标题")
+
+
+class ModelConfigBrief(BaseModel):
+    id: Optional[str] = Field(default=None, description="模型配置ID")
+    name: Optional[str] = Field(default=None, description="模型配置名称")
+    description: Optional[str] = Field(default=None, description="模型配置描述")
+
+
+class KnowledgeBaseBrief(BaseModel):
+    id: str = Field(..., description="知识库ID")
+    name: Optional[str] = Field(default=None, description="知识库名称")
+    description: Optional[str] = Field(default=None, description="知识库描述")
+
+
+class UserBrief(BaseModel):
+    id: int = Field(..., description="用户ID")
+    username: str = Field(..., description="用户账号")
+    alias: str = Field(..., description="用户名称")
+
+
+class ConversationStatSelect(BaseModel):
+    page: int = Field(default=1, ge=1, description="页码")
+    page_size: int = Field(default=10, ge=1, le=100, description="每页数量")
+    start_time: Optional[str] = Field(default=None, description="对话开始时间（按更新时间筛选）")
+    end_time: Optional[str] = Field(default=None, description="对话结束时间（按更新时间筛选）")
+
+
+class ConversationStatOut(BaseModel):
+    conversation: ConversationBrief = Field(..., description="对话信息")
+    model_config_info: Optional[ModelConfigBrief] = Field(
+        default=None, description="模型配置", serialization_alias="model_config"
+    )
+    knowledge_bases: List[KnowledgeBaseBrief] = Field(
+        default_factory=list, description="关联知识库列表"
+    )
+    round_count: int = Field(default=0, description="对话轮次")
+    token_usage: TokenUsage = Field(..., description="Token消耗量")
+    user: UserBrief = Field(..., description="用户信息")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MessageOut(BaseModel):
