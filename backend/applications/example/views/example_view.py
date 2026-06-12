@@ -36,7 +36,7 @@ example_product = APIRouter()
 
 # ==================== 分类接口 ====================
 
-@example_category.post("/category/create", summary="示例-创建分类")
+@example_category.post("/category/create", summary="示例-新增商品分类")
 async def create_category(
         category_in: CategoryCreate = Body(),
         category_crud: CategoryCrud = Depends(get_category_crud),
@@ -50,7 +50,7 @@ async def create_category(
         return FailureResponse(message=f"创建失败: {e}")
 
 
-@example_category.get("/category/list", summary="示例-查询分类列表")
+@example_category.get("/category/list", summary="示例-按条件分页查询商品分类(Query方式)")
 async def list_category(
         page: int = Query(default=1, ge=1, description="页码"),
         page_size: int = Query(default=10, ge=10, description="每页数量"),
@@ -71,7 +71,7 @@ async def list_category(
     return SuccessResponse(data=data, total=total)
 
 
-@example_category.get("/category/get", summary="示例-查询分类详情")
+@example_category.get("/category/get", summary="示例-按id查询商品分类")
 async def get_category(
         category_id: int = Query(..., description="分类ID"),
         category_crud: CategoryCrud = Depends(get_category_crud),
@@ -83,7 +83,7 @@ async def get_category(
     return SuccessResponse(data=data)
 
 
-@example_category.post("/category/update", summary="示例-更新分类")
+@example_category.post("/category/update", summary="示例-按id更新商品分类")
 async def update_category(
         category_in: CategoryUpdate = Body(),
         category_crud: CategoryCrud = Depends(get_category_crud),
@@ -100,7 +100,7 @@ async def update_category(
         return FailureResponse(message=f"更新失败: {e}")
 
 
-@example_category.delete("/category/delete", summary="示例-删除分类")
+@example_category.delete("/category/delete", summary="示例-按id删除商品分类")
 async def delete_category(
         category_id: int = Query(..., description="分类ID"),
         category_crud: CategoryCrud = Depends(get_category_crud),
@@ -116,7 +116,7 @@ async def delete_category(
 
 # ==================== 商品接口 ====================
 
-@example_product.post("/product/create", summary="示例-创建商品")
+@example_product.post("/product/create", summary="示例-新增商品模型")
 async def create_product(
         product_in: ProductCreate = Body(),
         product_crud: ProductCrud = Depends(get_product_crud),
@@ -130,7 +130,7 @@ async def create_product(
         return FailureResponse(message=f"创建失败: {e}")
 
 
-@example_product.post("/product/batch_create", summary="示例-批量创建商品")
+@example_product.post("/product/batch_create", summary="示例-批量新增商品模型")
 async def batch_create_products(
         batch_in: BatchCreateProducts = Body(),
         product_crud: ProductCrud = Depends(get_product_crud),
@@ -144,7 +144,7 @@ async def batch_create_products(
         return FailureResponse(message=f"批量创建失败: {e}")
 
 
-@example_product.get("/product/list", summary="示例-查询商品列表")
+@example_product.get("/product/list", summary="示例-按条件分页查询商品模型(Query方式)")
 async def list_product(
         page: int = Query(default=1, ge=1, description="页码"),
         page_size: int = Query(default=10, ge=10, description="每页数量"),
@@ -170,7 +170,7 @@ async def list_product(
     return SuccessResponse(data=data, total=total)
 
 
-@example_product.get("/product/query", summary="示例-使用查询构建器查询商品")
+@example_product.get("/product/query", summary="示例-按条件查询商品模型(构建器查询)")
 async def query_products(
         category_id: int = Query(default=None, description="分类ID"),
         is_featured: bool = Query(default=None, description="是否推荐"),
@@ -195,7 +195,7 @@ async def query_products(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@example_product.get("/product/get", summary="示例-查询商品详情")
+@example_product.get("/product/get", summary="示例-按id查询商品模型")
 async def get_product(
         product_id: int = Query(..., description="商品ID"),
         product_crud: ProductCrud = Depends(get_product_crud),
@@ -207,7 +207,7 @@ async def get_product(
     return SuccessResponse(data=data)
 
 
-@example_product.post("/product/update", summary="示例-更新商品")
+@example_product.post("/product/update", summary="示例-按id更新商品模型")
 async def update_product(
         product_in: ProductUpdate = Body(),
         product_crud: ProductCrud = Depends(get_product_crud),
@@ -224,7 +224,7 @@ async def update_product(
         return FailureResponse(message=f"更新失败: {e}")
 
 
-@example_product.post("/product/batch_update", summary="示例-批量更新商品")
+@example_product.post("/product/batch_update", summary="示例-按id更新商品模型(批量)")
 async def batch_update_products(
         batch_in: BatchUpdateProducts = Body(),
         product_crud: ProductCrud = Depends(get_product_crud),
@@ -237,7 +237,7 @@ async def batch_update_products(
         return FailureResponse(message=f"批量更新失败: {e}")
 
 
-@example_product.delete("/product/delete", summary="示例-删除商品")
+@example_product.delete("/product/delete", summary="示例-按id删除商品模型")
 async def delete_product(
         product_id: int = Query(..., description="商品ID"),
         product_crud: ProductCrud = Depends(get_product_crud),
@@ -251,7 +251,7 @@ async def delete_product(
         return FailureResponse(message=f"删除失败: {e}")
 
 
-@example_product.post("/product/transfer_stock", summary="示例-库存转移")
+@example_product.post("/product/transfer_stock", summary="示例-按id转移库存")
 async def transfer_stock(
         transfer_in: TransferStock = Body(),
         product_crud: ProductCrud = Depends(get_product_crud),
@@ -269,7 +269,7 @@ async def transfer_stock(
         return FailureResponse(message=f"库存转移失败: {e}")
 
 
-@example_product.get("/product/statistics", summary="示例-商品统计")
+@example_product.get("/product/statistics", summary="示例-获取商品模型统计信息")
 async def product_statistics(
         product_crud: ProductCrud = Depends(get_product_crud),
 ):
@@ -282,7 +282,7 @@ async def product_statistics(
         return FailureResponse(message=f"获取统计失败: {e}")
 
 
-@example_product.get("/product/category_stats", summary="示例-分类统计")
+@example_product.get("/product/category_stats", summary="示例-获取商品模型分类统计信息")
 async def category_statistics(
         product_crud: ProductCrud = Depends(get_product_crud),
 ):
@@ -295,7 +295,7 @@ async def category_statistics(
         return FailureResponse(message=f"获取分类统计失败: {e}")
 
 
-@example_product.get("/product/exists", summary="示例-检查商品是否存在")
+@example_product.get("/product/exists", summary="示例-按code查询商品是否存在")
 async def check_product_exists(
         code: str = Query(..., description="商品编码"),
         product_crud: ProductCrud = Depends(get_product_crud),
@@ -307,7 +307,7 @@ async def check_product_exists(
 
 # ==================== 组合依赖示例：需要同时使用多个 CRUD 的接口 ====================
 
-@example_product.get("/product/with_category", summary="示例-查询商品及分类信息")
+@example_product.get("/product/with_category", summary="示例-按id查询商品及分类信息")
 async def get_product_with_category(
         product_id: int = Query(..., description="商品ID"),
         services: ExampleServices = Depends(get_example_services),
