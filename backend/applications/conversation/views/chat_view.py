@@ -36,6 +36,7 @@ async def chat_stream(
     # 2. 定义异步生成器：惰性执行，不立即运行
     async def event_generator():
         full_response = ""
+        full_reasoning = ""
         usage_data = None
 
         # 2.1 发送元数据事件（第一个事件）
@@ -53,7 +54,14 @@ async def chat_stream(
                     model_config,
                     enable_thinking=req.enable_thinking,
             ):
-                if chunk.get("type") == "content":
+                if chunk.get("type") == "reasoning":
+                    token = chunk.get("content", "")
+                    full_reasoning += token
+                    yield {
+                        "event": "reasoning",
+                        "data": json.dumps({"type": "reasoning", "content": token}),
+                    }
+                elif chunk.get("type") == "content":
                     token = chunk.get("content", "")
                     full_response += token
                     yield {
@@ -75,6 +83,14 @@ async def chat_stream(
             }
             return
 
+        process_trace = []
+        if full_reasoning.strip():
+            process_trace.append({
+                "type": "reasoning",
+                "content": full_reasoning,
+                "status": "done",
+            })
+
         # 2.4 保存完整回复到数据库
         try:
             await conversation_crud.save_assistant_message(
@@ -83,12 +99,15 @@ async def chat_stream(
                 prompt_tokens=usage_data.get("prompt_tokens") if usage_data else None,
                 completion_tokens=usage_data.get("completion_tokens") if usage_data else None,
                 reasoning_tokens=usage_data.get("reasoning_tokens") if usage_data else None,
+                process_trace=process_trace or None,
             )
         except Exception as e:
             print(f"[chat_stream] 保存消息失败: {e}")
 
         # 2.5 发送完成事件
         done_payload = {"type": "done", "content": full_response}
+        if process_trace:
+            done_payload["process_trace"] = process_trace
         if usage_data:
             done_payload["usage"] = usage_data
         yield {

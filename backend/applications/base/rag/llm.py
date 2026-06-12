@@ -160,6 +160,9 @@ class OpenAICompatibleLLM:
                         try:
                             chunk = json.loads(data)
                             delta = chunk["choices"][0].get("delta", {})
+                            reasoning = delta.get("reasoning_content", "")
+                            if reasoning:
+                                yield {"type": "reasoning", "content": reasoning}
                             content = delta.get("content", "")
                             if content:
                                 yield {"type": "content", "content": content}

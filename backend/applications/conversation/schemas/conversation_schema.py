@@ -87,6 +87,10 @@ class MessageBase(BaseModel):
     prompt_tokens: Optional[int] = Field(default=None, description="输入Token数")
     completion_tokens: Optional[int] = Field(default=None, description="输出Token数")
     reasoning_tokens: Optional[int] = Field(default=None, description="推理Token数")
+    process_trace: Optional[List[dict]] = Field(
+        default=None,
+        description="过程追踪(推理链/工具调用等)",
+    )
 
 
 class MessageCreate(MessageBase):
@@ -169,6 +173,10 @@ class MessageOut(BaseModel):
     prompt_tokens: Optional[int] = Field(default=None, description="输入Token数(Prompt)")
     completion_tokens: Optional[int] = Field(default=None, description="输出Token数(Completion)")
     reasoning_tokens: Optional[int] = Field(default=None, description="推理Token数(Thinking/Reasoning)")
+    process_trace: Optional[List[dict]] = Field(
+        default=None,
+        description="过程追踪(推理链/工具调用等)",
+    )
     created_time: datetime = Field(..., description="创建时间")
 
     model_config = ConfigDict(from_attributes=True)

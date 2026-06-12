@@ -56,6 +56,7 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
         prompt_tokens: Optional[int] = None,
         completion_tokens: Optional[int] = None,
         reasoning_tokens: Optional[int] = None,
+        process_trace: Optional[List[dict]] = None,
     ) -> Message:
         """添加消息"""
         data = MessageCreate(
@@ -65,6 +66,7 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             reasoning_tokens=reasoning_tokens,
+            process_trace=process_trace,
         )
         return await self.create(data.create_dict())
 
@@ -274,6 +276,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         prompt_tokens: Optional[int] = None,
         completion_tokens: Optional[int] = None,
         reasoning_tokens: Optional[int] = None,
+        process_trace: Optional[List[dict]] = None,
     ) -> None:
         """保存助手回复消息"""
         await self.message.add_message(
@@ -283,6 +286,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             reasoning_tokens=reasoning_tokens,
+            process_trace=process_trace,
         )
 
     async def list_conversation_stats_by_user(

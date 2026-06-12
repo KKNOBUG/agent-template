@@ -55,6 +55,7 @@ class Message(ScaffoldModel, StateModel, TimestampMixin):
     prompt_tokens = fields.IntField(null=True, description="输入Token数(Prompt)")
     completion_tokens = fields.IntField(null=True, description="输出Token数(Completion)")
     reasoning_tokens = fields.IntField(null=True, description="推理Token数(Thinking/Reasoning)")
+    process_trace = fields.JSONField(null=True, description="过程追踪(推理链/工具调用等)")
 
     class Meta:
         table = "keenrobot_messages"

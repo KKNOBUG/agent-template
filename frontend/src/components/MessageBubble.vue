@@ -1,8 +1,14 @@
 <script setup>
+import ChatProcessTrace from './chat/ChatProcessTrace.vue'
+
 defineProps({
   role: String,
   content: String,
   html: String,
+  processTrace: {
+    type: Array,
+    default: () => [],
+  },
   isStreaming: Boolean,
   promptTokens: Number,
   completionTokens: Number,
@@ -26,9 +32,18 @@ function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
       </div>
     </div>
     <div class="bubble">
-      <div v-if="role === 'assistant'" class="markdown-body bubble-content" v-html="html"></div>
-      <div v-else class="text-content bubble-content">{{ content }}</div>
-      <span v-if="isStreaming" class="cursor-blink"></span>
+      <ChatProcessTrace
+          v-if="role === 'assistant' && processTrace.length > 0"
+          :steps="processTrace"
+          :streaming="isStreaming"
+      />
+      <div
+          v-if="role === 'assistant' && (content || !processTrace.length)"
+          class="markdown-body bubble-content"
+          v-html="html"
+      />
+      <div v-else-if="role !== 'assistant'" class="text-content bubble-content">{{ content }}</div>
+      <span v-if="isStreaming && content" class="cursor-blink"></span>
       <div
           v-if="role === 'assistant' && hasTokenUsage(promptTokens, completionTokens, reasoningTokens)"
           class="token-usage"

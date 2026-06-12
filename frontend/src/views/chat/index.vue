@@ -77,6 +77,24 @@ function buildTurnLabel(content) {
   return content.slice(0, 20) + (content.length > 20 ? '...' : '')
 }
 
+function getOrCreateRunningStep(trace, type) {
+  if (!trace) return null
+  let step = trace.find((item) => item.type === type && item.status === 'running')
+  if (!step) {
+    step = { type, content: '', status: 'running' }
+    trace.push(step)
+  }
+  return step
+}
+
+function finishRunningStep(trace, type) {
+  if (!trace) return
+  const step = trace.find((item) => item.type === type && item.status === 'running')
+  if (step) {
+    step.status = 'done'
+  }
+}
+
 const userTurns = computed(() => {
   const turns = []
   messages.value.forEach((msg, messageIndex) => {
@@ -243,6 +261,7 @@ async function loadConversation(id) {
       prompt_tokens: m.prompt_tokens,
       completion_tokens: m.completion_tokens,
       reasoning_tokens: m.reasoning_tokens,
+      process_trace: m.process_trace || [],
     }))
     if (detail.knowledge_base_ids != null) {
       selectedKBs.value = detail.knowledge_base_ids
@@ -417,7 +436,7 @@ async function sendMessage() {
 
   inputText.value = ''
   messages.value.push({ role: 'user', content: question })
-  messages.value.push({ role: 'assistant', content: '' })
+  messages.value.push({ role: 'assistant', content: '', process_trace: [] })
   isLoading.value = true
 
   await nextTick()
@@ -442,11 +461,25 @@ async function sendMessage() {
             prependConversation(data.conversation_id, buildConversationTitle(firstQuestion))
           }
         },
+        onReasoning(token) {
+          const trace = messages.value[assistantIdx].process_trace
+          const step = getOrCreateRunningStep(trace, 'reasoning')
+          if (step) {
+            step.content += token
+          }
+          nextTick(scrollToBottom)
+        },
         onToken(token) {
+          finishRunningStep(messages.value[assistantIdx].process_trace, 'reasoning')
           messages.value[assistantIdx].content += token
           nextTick(scrollToBottom)
         },
         onDone(data) {
+          if (data?.process_trace) {
+            messages.value[assistantIdx].process_trace = data.process_trace
+          } else {
+            finishRunningStep(messages.value[assistantIdx].process_trace, 'reasoning')
+          }
           if (data?.usage) {
             messages.value[assistantIdx].prompt_tokens = data.usage.prompt_tokens
             messages.value[assistantIdx].completion_tokens = data.usage.completion_tokens
@@ -609,7 +642,8 @@ function renderMarkdown(text) {
                         :role="msg.role"
                         :content="msg.content"
                         :html="msg.role === 'assistant' ? renderMarkdown(msg.content) : ''"
-                        :isStreaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
+                        :process-trace="msg.process_trace || []"
+                        :is-streaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
                         :prompt-tokens="msg.prompt_tokens"
                         :completion-tokens="msg.completion_tokens"
                         :reasoning-tokens="msg.reasoning_tokens"
