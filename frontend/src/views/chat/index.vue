@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { NButton, NLayout, NLayoutContent, NLayoutSider, NSkeleton } from 'naive-ui'
 import MessageBubble from '../../components/MessageBubble.vue'
+import ChatKbPicker from '../../components/chat/ChatKbPicker.vue'
 import CommonPage from '@/components/page/CommonPage.vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
 import api, { chatStream } from '@/api'
@@ -81,11 +82,6 @@ onMounted(async () => {
     const kbs = await api.fetchKnowledgeBases()
     knowledgeBases.value = kbs || []
     console.log('[Chat] 知识库加载完成:', kbs)
-    // 自动选择第一个知识库
-    if (kbs && kbs.length > 0) {
-      selectedKBs.value = [kbs[0].id]
-      console.log('[Chat] 自动选择知识库:', kbs[0].id)
-    }
   } catch (err) {
     console.error('[Chat] 加载知识库失败:', err)
     knowledgeBases.value = []
@@ -143,13 +139,7 @@ async function switchToConversation(newId) {
   } else {
     currentConvId = null
     messages.value = []
-    // 新建对话时，恢复默认知识库选择
-    if (knowledgeBases.value.length > 0) {
-      selectedKBs.value = [knowledgeBases.value[0].id]
-      console.log('[Chat] 新建对话，自动选择知识库:', knowledgeBases.value[0].id)
-    } else {
-      selectedKBs.value = []
-    }
+    selectedKBs.value = []
     // 恢复默认模型配置
     if (modelConfigs.value.length > 0) {
       selectedModelConfig.value = modelConfigs.value.find(c => c.is_default)?.id || modelConfigs.value[0].id
@@ -286,11 +276,40 @@ function handleScrollFabClick() {
   nextTick(updateScrollFabState)
 }
 
+function confirmSendWithoutKb() {
+  return new Promise((resolve) => {
+    if (!window.$dialog?.confirm) {
+      resolve(false)
+      return
+    }
+    window.$dialog.confirm({
+      title: '未选择知识库',
+      type: 'warning',
+      content: '当前未选择任何知识库，回答将不引用文档内容，是否继续发送？',
+      positiveText: '确认发送',
+      negativeText: '取消',
+      confirm() {
+        resolve(true)
+      },
+      cancel() {
+        resolve(false)
+      },
+    })
+  })
+}
+
 async function sendMessage() {
   const question = inputText.value.trim()
 
-  if (!question || isLoading.value) {
+  if (!question || isLoading.value || isConversationLoading.value) {
     return
+  }
+
+  if (selectedKBs.value.length === 0) {
+    const confirmed = await confirmSendWithoutKb()
+    if (!confirmed) {
+      return
+    }
   }
 
   inputText.value = ''
@@ -465,6 +484,11 @@ function renderMarkdown(text) {
                     智能助手，很高兴见到你！
                   </p>
                 </div>
+                <ChatKbPicker
+                    v-model="selectedKBs"
+                    class="welcome-kb-picker"
+                    :items="knowledgeBases"
+                />
               </div>
 
               <template v-else>
@@ -693,7 +717,8 @@ function renderMarkdown(text) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 15vh;
   overflow: hidden;
 }
 
@@ -738,10 +763,16 @@ function renderMarkdown(text) {
   max-width: 640px;
 }
 
+.welcome-kb-picker {
+  width: 100%;
+  max-width: 640px;
+  margin-top: 20px;
+}
+
 .welcome-greeting {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 1.8;
   color: var(--n-text-color, #333);
 }
 
