@@ -11,7 +11,7 @@ TASK_CENTER_PRESETS = [
         "task_type": "example",
         "task_name": "示例写入任务",
         "task_desc": "向 task_example.txt 追加写入，含随机终止/失败事件，用于测试 Celery 执行链路",
-        "task_celery": task_example.name,
+        "task_celery_node": task_example.name,
         "task_kwargs": {
             "write_number": 100,
             "write_message": "测试文本：通过Celery异步执行函数...",

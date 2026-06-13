@@ -77,14 +77,14 @@ def _get_task_id_from_request(request) -> Optional[Any]:
 
 async def _ensure_tortoise_then_create_task_record(
         celery_id: str,
-        celery_node: str,
+        task_celery_node: str,
         celery_trace_id: str,
         task_id: Optional[Any],
 ):
     await init_tortoise_orm()
     await _create_task_record(
         celery_id=celery_id,
-        celery_node=celery_node,
+        task_celery_node=task_celery_node,
         celery_trace_id=celery_trace_id,
         task_id=task_id,
     )
@@ -92,7 +92,7 @@ async def _ensure_tortoise_then_create_task_record(
 
 async def _create_task_record(
         celery_id: str,
-        celery_node: str,
+        task_celery_node: str,
         celery_trace_id: str,
         task_id: Optional[Any],
 ):
@@ -102,40 +102,44 @@ async def _create_task_record(
 
     task_name: Optional[str] = None
     task_kwargs: Dict[str, Any] = {}
-    celery_scheduler: Optional[str] = None
+    task_celery_scheduler: Optional[str] = None
+    task_version: Optional[int] = None
 
     if task_id is not None:
         task_instance = await TaskCenterInfo.filter(id=task_id, state=0).first()
         if task_instance:
             task_name = getattr(task_instance, "task_name", None)
             task_kwargs = getattr(task_instance, "task_kwargs", None) or {}
-            scheduler = task_instance.task_scheduler
-            celery_scheduler = (
+            task_version = getattr(task_instance, "task_version", None) or 0
+            scheduler = task_instance.task_celery_scheduler
+            task_celery_scheduler = (
                 TaskCenterScheduler(scheduler)
                 if isinstance(scheduler, str)
                 else scheduler
             )
             task_instance.last_execute_time = datetime.now()
-            task_instance.last_execute_state = TaskCenterStatus.RUNNING
-            await task_instance.save(update_fields=["last_execute_time", "last_execute_state"])
+            task_instance.task_celery_status = TaskCenterStatus.RUNNING
+            await task_instance.save(update_fields=["last_execute_time", "task_celery_status"])
 
     data: Dict[str, Any] = {
         "task_id": task_id,
+        "task_version": task_version,
         "task_name": task_name,
         "task_kwargs": task_kwargs,
         "celery_id": celery_id,
-        "celery_node": celery_node,
+        "task_celery_node": task_celery_node,
         "celery_trace_id": celery_trace_id,
-        "celery_status": TaskCenterStatus.RUNNING,
-        "celery_scheduler": celery_scheduler,
+        "task_celery_status": TaskCenterStatus.RUNNING,
+        "task_celery_scheduler": task_celery_scheduler,
         "celery_start_time": datetime.now(),
     }
     await TaskCenterRecordCrud().create_record(data)
     LOGGER.info(
         f"【Worker】创建执行记录成功: \n"
         f"任务ID: {task_id}\n"
+        f"任务版本: {task_version}\n"
         f"调度ID: {celery_id}\n"
-        f"调度节点: {celery_node}\n"
+        f"任务调度节点: {task_celery_node}\n"
     )
 
 
@@ -154,7 +158,7 @@ async def _update_task_record_on_end(
     status_enum = TaskCenterStatus.SUCCESS if success else TaskCenterStatus.FAILURE
     summary = (result_or_error or "").strip() or ""
     data = {
-        "celery_status": status_enum,
+        "task_celery_status": status_enum,
         "celery_end_time": now,
         "task_summary": summary,
         "task_error": None if success else (traceback_str or summary),
@@ -176,9 +180,9 @@ async def _update_task_record_on_end(
         from backend.applications.task_center.models.task_center_model import TaskCenterInfo
         task_info = await TaskCenterInfo.filter(id=record.task_id, state=0).first()
         if task_info:
-            task_info.last_execute_state = status_enum
-            update_fields = ["last_execute_state"]
-            if get_scheduler_value(getattr(task_info, "task_scheduler", None)) == "datetime":
+            task_info.task_celery_status = status_enum
+            update_fields = ["task_celery_status"]
+            if get_scheduler_value(getattr(task_info, "task_celery_scheduler", None)) == "datetime":
                 task_info.task_enabled = False
                 update_fields.append("task_enabled")
             await task_info.save(update_fields=update_fields)
@@ -187,7 +191,7 @@ async def _update_task_record_on_end(
         f"【Worker】更新执行记录成功: \n"
         f"任务ID: {record.task_id}\n"
         f"调度ID: {celery_id}\n"
-        f"调度节点: {record.celery_node}\n"
+        f"任务调度节点: {record.task_celery_node}\n"
     )
 
 
@@ -195,9 +199,9 @@ async def _update_task_record_on_end(
 def receiver_task_pre_run(task: Task, *args, **kwargs):
     task_id = _get_task_id_from_request(task.request)
     celery_id = task.request.id
-    celery_node = (task.name or "").strip()
+    task_celery_node = (task.name or "").strip()
     try:
-        if celery_node == _SCAN_TASK_NAME:
+        if task_celery_node == _SCAN_TASK_NAME:
             ensure_tortoise_orm_initialized()
         elif task_id is not None:
             try:
@@ -210,7 +214,7 @@ def receiver_task_pre_run(task: Task, *args, **kwargs):
                     _ensure_tortoise_then_create_task_record(
                         task_id=task_id,
                         celery_id=celery_id,
-                        celery_node=celery_node,
+                        task_celery_node=task_celery_node,
                         celery_trace_id=celery_trace_id_val,
                     )
                 )
@@ -219,7 +223,7 @@ def receiver_task_pre_run(task: Task, *args, **kwargs):
                     f"【Worker】创建执行记录失败: \n"
                     f"任务ID: {task_id}\n"
                     f"调度ID: {celery_id}\n"
-                    f"调度节点: {celery_node}\n"
+                    f"任务调度节点: {task_celery_node}\n"
                     f"错误类型: {type(e).__name__}\n"
                     f"错误描述: {e}\n\t"
                     f"错误回溯: {traceback.format_exc()}\n"
@@ -229,7 +233,7 @@ def receiver_task_pre_run(task: Task, *args, **kwargs):
             f"【Worker】任务提交异常(task_prerun.connect): \n"
             f"任务ID: {task_id}\n"
             f"调度ID: {celery_id}\n"
-            f"调度节点: {celery_node}\n"
+            f"任务调度节点: {task_celery_node}\n"
             f"错误类型: {type(e).__name__}\n"
             f"错误描述: {e}\n"
             f"错误回溯: {traceback.format_exc()}\n"
@@ -306,7 +310,7 @@ def create_celery():
                         f"【Worker】更新执行记录异常: \n"
                         f"任务ID: {_get_task_id_from_request(self.request)}\n"
                         f"调度ID: {self.request.id}\n"
-                        f"调度节点: {self.name}\n"
+                        f"任务调度节点: {self.name}\n"
                         f"错误描述: {type(e).__name__}: {e}\n"
                         f"错误回溯: {traceback.format_exc()}\n"
                     )
@@ -314,12 +318,12 @@ def create_celery():
         def on_success(self, retval, task_id, args, kwargs):
             celery_id = task_id
             task_center_task_id = _get_task_id_from_request(self.request)
-            celery_node = self.name or ""
+            task_celery_node = self.name or ""
             success = not (isinstance(retval, dict) and retval.get("success") is False)
             summary = str(retval.get("error") or retval) if isinstance(retval, dict) and not success else (
                 str(retval) if retval is not None else ""
             )
-            if celery_node == _SCAN_TASK_NAME:
+            if task_celery_node == _SCAN_TASK_NAME:
                 if success and isinstance(retval, dict):
                     LOGGER.info(
                         f"【Worker】任务扫描完成: \n"
@@ -340,14 +344,14 @@ def create_celery():
                     f"【Worker】任务执行成功: \n"
                     f"任务ID: {task_center_task_id}\n"
                     f"调度ID: {celery_id}\n"
-                    f"调度节点: {celery_node}\n"
+                    f"任务调度节点: {task_celery_node}\n"
                 )
             else:
                 LOGGER.error(
                     f"【Worker】任务执行失败: \n"
                     f"任务ID: {task_center_task_id}\n"
                     f"调度ID: {celery_id}\n"
-                    f"调度节点: {celery_node}\n"
+                    f"任务调度节点: {task_celery_node}\n"
                     f"错误描述: {summary}\n"
                 )
             self.handel_task_record(success, summary)
@@ -356,8 +360,8 @@ def create_celery():
         def on_failure(self, exc, task_id, args, kwargs, einfo):
             celery_id = task_id
             task_center_task_id = _get_task_id_from_request(self.request)
-            celery_node = self.name or ""
-            if celery_node == _SCAN_TASK_NAME:
+            task_celery_node = self.name or ""
+            if task_celery_node == _SCAN_TASK_NAME:
                 LOGGER.error(
                     f"【Worker】任务扫描失败: \n"
                     f"调度ID: {celery_id}\n"
@@ -370,7 +374,7 @@ def create_celery():
                     f"【Worker】任务执行失败: \n"
                     f"任务ID: {task_center_task_id}\n"
                     f"调度ID: {celery_id}\n"
-                    f"调度节点: {celery_node}\n"
+                    f"任务调度节点: {task_celery_node}\n"
                     f"错误类型: {type(exc).__name__}\n"
                     f"错误描述: {exc}\n"
                     f"错误回溯: {traceback.format_exc()}\n"

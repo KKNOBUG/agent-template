@@ -61,14 +61,16 @@ class TaskCenterRecordCrud(
                 q &= Q(celery_id=record_in.celery_id)
             if record_in.task_id is not None:
                 q &= Q(task_id=record_in.task_id)
+            if record_in.task_version is not None:
+                q &= Q(task_version=record_in.task_version)
             if record_in.task_name:
                 q &= Q(task_name__contains=record_in.task_name)
-            if record_in.celery_node:
-                q &= Q(celery_node__contains=record_in.celery_node)
-            if record_in.celery_status:
-                q &= Q(celery_status=record_in.celery_status)
-            if record_in.celery_scheduler:
-                q &= Q(celery_scheduler=record_in.celery_scheduler)
+            if record_in.task_celery_node:
+                q &= Q(task_celery_node__contains=record_in.task_celery_node)
+            if record_in.task_celery_status:
+                q &= Q(task_celery_status=record_in.task_celery_status)
+            if record_in.task_celery_scheduler:
+                q &= Q(task_celery_scheduler=record_in.task_celery_scheduler)
             if record_in.celery_start_time_begin:
                 try:
                     start_begin = datetime.strptime(record_in.celery_start_time_begin.strip()[:19], "%Y-%m-%d %H:%M:%S")

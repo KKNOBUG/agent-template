@@ -126,7 +126,7 @@ async def get_scheduled_tasks(task_type: str) -> List[Any]:
     q = (
             Q(state=0)
             & Q(task_enabled=True)
-            & ~Q(task_scheduler__isnull=True)
+            & ~Q(task_celery_scheduler__isnull=True)
             & Q(task_type=task_type)
     )
     tasks = await Model.filter(q).all()
@@ -134,7 +134,7 @@ async def get_scheduled_tasks(task_type: str) -> List[Any]:
 
 
 async def check_task_expired(task: Any) -> bool:
-    scheduler = getattr(task, "task_scheduler", None)
+    scheduler = getattr(task, "task_celery_scheduler", None)
     scheduler_str = get_scheduler_value(scheduler)
     if not scheduler_str:
         return False

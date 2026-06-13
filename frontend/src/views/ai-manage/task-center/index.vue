@@ -33,7 +33,7 @@ const presets = ref([])
 const schedulerOptions = ref([])
 
 const taskQuery = ref({ task_name: '', task_type: null, task_enabled: null })
-const recordQuery = ref({ task_name: '', celery_status: null })
+const recordQuery = ref({ task_name: '', task_celery_status: null })
 
 const taskQueryBarProps = {
   addReset: true,
@@ -61,7 +61,7 @@ const statusTypeMap = {
 const schedulerLabelMap = {
   cron: 'Cron',
   interval: '固定间隔',
-  datetime: '一次性定时',
+  datetime: '一次性',
 }
 
 const {
@@ -88,9 +88,9 @@ function buildInitForm() {
     task_name: '',
     task_desc: '',
     task_type: '',
-    task_celery: '',
+    task_celery_node: '',
     task_kwargs_text: '{}',
-    task_scheduler: null,
+    task_celery_scheduler: null,
     task_interval_expr: 300,
     task_datetime_expr: '',
     task_crontabs_expr: '',
@@ -129,12 +129,12 @@ function buildPayload(form, isUpdate = false) {
     task_name: form.task_name,
     task_desc: form.task_desc || null,
     task_type: form.task_type || null,
-    task_celery: form.task_celery || null,
+    task_celery_node: form.task_celery_node || null,
     task_kwargs: kwargs,
-    task_scheduler: form.task_scheduler || null,
-    task_interval_expr: form.task_scheduler === 'interval' ? form.task_interval_expr : null,
-    task_datetime_expr: form.task_scheduler === 'datetime' ? form.task_datetime_expr : null,
-    task_crontabs_expr: form.task_scheduler === 'cron' ? form.task_crontabs_expr : null,
+    task_celery_scheduler: form.task_celery_scheduler || null,
+    task_interval_expr: form.task_celery_scheduler === 'interval' ? form.task_interval_expr : null,
+    task_datetime_expr: form.task_celery_scheduler === 'datetime' ? form.task_datetime_expr : null,
+    task_crontabs_expr: form.task_celery_scheduler === 'cron' ? form.task_crontabs_expr : null,
     task_enabled: !!form.task_enabled,
   }
   if (isUpdate) {
@@ -153,7 +153,7 @@ function applyPreset(presetKey) {
     task_name: preset.task_name,
     task_desc: preset.task_desc || '',
     task_type: preset.task_type,
-    task_celery: preset.task_celery,
+    task_celery_node: preset.task_celery_node,
     task_kwargs_text: configToText(kwargs),
     write_number: kwargs.write_number ?? 100,
     write_message: kwargs.write_message || '测试文本：通过Celery异步执行函数...',
@@ -202,7 +202,7 @@ function openEdit(row) {
     ...row,
     task_id: row.task_id ?? row.id,
     task_kwargs_text: configToText(row.task_kwargs),
-    task_scheduler: row.task_scheduler || null,
+    task_celery_scheduler: row.task_celery_scheduler || null,
     write_number: row.task_kwargs?.write_number ?? 100,
     write_message: row.task_kwargs?.write_message || '',
     preset_key: null,
@@ -237,7 +237,7 @@ async function fetchTaskList(params) {
 async function fetchRecordList(params) {
   const res = await api.searchTaskRecords({
     task_name: params.task_name || undefined,
-    celery_status: params.celery_status || undefined,
+    task_celery_status: params.task_celery_status || undefined,
     page: params.page || 1,
     page_size: params.pageSize || 10,
     order: ['-celery_start_time', '-id'],
@@ -339,31 +339,39 @@ const taskColumns = computed(() => [
   {
     title: '任务名称',
     key: 'task_name',
+    minWidth: 140,
     ellipsis: { tooltip: true },
   },
   {
     title: '分类',
     key: 'task_type',
+    width: 90,
     render(row) {
       return row.task_type || '-'
     },
   },
   {
-    title: '调度节点',
-    key: 'task_celery',
-    ellipsis: { tooltip: true },
+    title: '任务版本',
+    key: 'task_version',
+    width: 90,
+    align: 'center',
+    render(row) {
+      return row.task_version ?? 0
+    },
   },
   {
-    title: '调度模式',
-    key: 'task_scheduler',
+    title: '任务调度模式',
+    key: 'task_celery_scheduler',
+    width: 100,
     render(row) {
-      if (!row.task_scheduler) return '-'
-      return schedulerLabelMap[row.task_scheduler] || row.task_scheduler
+      if (!row.task_celery_scheduler) return '-'
+      return schedulerLabelMap[row.task_celery_scheduler] || row.task_celery_scheduler
     },
   },
   {
     title: '调度状态',
     key: 'task_enabled',
+    width: 90,
     align: 'center',
     render(row) {
       return row.task_enabled
@@ -372,21 +380,23 @@ const taskColumns = computed(() => [
     },
   },
   {
-    title: '最后执行',
-    key: 'last_execute_state',
+    title: '任务调度状态',
+    key: 'task_celery_status',
+    width: 100,
     align: 'center',
     render(row) {
-      if (!row.last_execute_state) return '-'
+      if (!row.task_celery_status) return '-'
       return h(
           NTag,
-          { type: statusTypeMap[row.last_execute_state] || 'default', size: 'small' },
-          { default: () => row.last_execute_state },
+          { type: statusTypeMap[row.task_celery_status] || 'default', size: 'small' },
+          { default: () => row.task_celery_status },
       )
     },
   },
   {
     title: '最后执行时间',
     key: 'last_execute_time',
+    width: 170,
     align: 'center',
     render(row) {
       return row.last_execute_time ? formatDateTime(row.last_execute_time) : '-'
@@ -395,6 +405,7 @@ const taskColumns = computed(() => [
   {
     title: '操作',
     key: 'actions',
+    width: 280,
     align: 'center',
     fixed: 'right',
     render(row) {
@@ -447,21 +458,30 @@ const recordColumns = computed(() => [
     ellipsis: { tooltip: true },
   },
   {
+    title: '任务版本',
+    key: 'task_version',
+    width: 90,
+    align: 'center',
+    render(row) {
+      return row.task_version ?? '-'
+    },
+  },
+  {
     title: 'Celery ID',
     key: 'celery_id',
     minWidth: 180,
     ellipsis: { tooltip: true },
   },
   {
-    title: '状态',
-    key: 'celery_status',
+    title: '任务调度状态',
+    key: 'task_celery_status',
     width: 100,
     align: 'center',
     render(row) {
       return h(
           NTag,
-          { type: statusTypeMap[row.celery_status] || 'default', size: 'small' },
-          { default: () => row.celery_status || '-' },
+          { type: statusTypeMap[row.task_celery_status] || 'default', size: 'small' },
+          { default: () => row.task_celery_status || '-' },
       )
     },
   },
@@ -565,9 +585,9 @@ const recordColumns = computed(() => [
                   @keypress.enter="$recordTable?.handleSearch()"
               />
             </QueryBarItem>
-            <QueryBarItem label="执行状态：">
+            <QueryBarItem label="任务调度状态：">
               <NSelect
-                  v-model:value="recordQuery.celery_status"
+                  v-model:value="recordQuery.task_celery_status"
                   :options="statusFilterOptions"
                   clearable
                   style="width: 120px"
@@ -616,11 +636,11 @@ const recordColumns = computed(() => [
           <NInput v-model:value="modalForm.task_type" placeholder="如 example、rag" />
         </NFormItem>
         <NFormItem
-            label="Celery任务"
-            path="task_celery"
-            :rule="{ required: true, message: '请填写 Celery 任务名', trigger: ['input', 'blur'] }"
+            label="任务调度节点"
+            path="task_celery_node"
+            :rule="{ required: true, message: '请填写任务调度节点', trigger: ['input', 'blur'] }"
         >
-          <NInput v-model:value="modalForm.task_celery" placeholder="backend.celery_scheduler.tasks..." />
+          <NInput v-model:value="modalForm.task_celery_node" placeholder="backend.celery_scheduler.tasks..." />
         </NFormItem>
         <NFormItem
             v-if="isExamplePreset"
@@ -659,21 +679,21 @@ const recordColumns = computed(() => [
               :placeholder="kwargsPlaceholder"
           />
         </NFormItem>
-        <NFormItem label="调度模式" path="task_scheduler">
+        <NFormItem label="任务调度模式" path="task_celery_scheduler">
           <NSelect
-              v-model:value="modalForm.task_scheduler"
+              v-model:value="modalForm.task_celery_scheduler"
               :options="schedulerOptions"
               clearable
               placeholder="不选则仅支持手动执行"
           />
         </NFormItem>
-        <NFormItem v-if="modalForm.task_scheduler === 'interval'" label="间隔(秒)" path="task_interval_expr">
-          <NInputNumber v-model:value="modalForm.task_interval_expr" :min="60" :step="60" style="width: 100%" />
+        <NFormItem v-if="modalForm.task_celery_scheduler === 'interval'" label="间隔(秒)" path="task_interval_expr">
+          <NInputNumber v-model:value="modalForm.task_interval_expr" :min="10" :step="10" style="width: 100%" />
         </NFormItem>
-        <NFormItem v-if="modalForm.task_scheduler === 'cron'" label="Cron表达式" path="task_crontabs_expr">
+        <NFormItem v-if="modalForm.task_celery_scheduler === 'cron'" label="Cron表达式" path="task_crontabs_expr">
           <NInput v-model:value="modalForm.task_crontabs_expr" placeholder="如 0 */2 * * *" />
         </NFormItem>
-        <NFormItem v-if="modalForm.task_scheduler === 'datetime'" label="执行时间" path="task_datetime_expr">
+        <NFormItem v-if="modalForm.task_celery_scheduler === 'datetime'" label="执行时间" path="task_datetime_expr">
           <NInput v-model:value="modalForm.task_datetime_expr" placeholder="YYYY-MM-DD HH:MM:SS" />
         </NFormItem>
         <NFormItem label="启用调度" path="task_enabled">

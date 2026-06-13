@@ -18,17 +18,14 @@ from backend.configure import LOGGER
 
 
 def dispatch_task_center_task(task: Any, override_kwargs: Optional[Dict[str, Any]] = None) -> None:
-    """
-    按 TaskCenterInfo.task_celery 下发 Celery 任务。
-    celery_node 与 task_celery 对齐，不再经 run_scheduled_task 中转。
-    """
-    task_celery = (getattr(task, "task_celery", None) or "").strip()
-    if not task_celery:
-        raise ValueError(f"任务ID={getattr(task, 'id', None)} 未配置 task_celery")
+    """按 TaskCenterInfo.task_celery_node 下发 Celery 任务。"""
+    task_celery_node = (getattr(task, "task_celery_node", None) or "").strip()
+    if not task_celery_node:
+        raise ValueError(f"任务ID={getattr(task, 'id', None)} 未配置 task_celery_node")
 
     task_kwargs = {**(getattr(task, "task_kwargs", None) or {}), **(override_kwargs or {})}
     celery.send_task(
-        task_celery,
+        task_celery_node,
         kwargs=task_kwargs,
         __task_id=task.id,
     )
@@ -71,5 +68,5 @@ async def _scan_and_dispatch_impl() -> Dict[str, Any]:
 
 @celery.task(name="backend.celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks")
 def scan_and_dispatch_tasks():
-    """定时扫描：读取启用且配置了调度的 example 任务，到期则按 task_celery 下发。"""
+    """定时扫描：读取启用且配置了调度的 example 任务，到期则按 task_celery_node 下发。"""
     return run_async(_scan_and_dispatch_impl())

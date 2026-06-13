@@ -25,6 +25,10 @@ class TaskCenterCrud(ScaffoldCrud[TaskCenterInfo, TaskCenterCreate, TaskCenterUp
     def __init__(self):
         super().__init__(model=TaskCenterInfo)
 
+    @staticmethod
+    def _next_task_version(current: Optional[int]) -> int:
+        return (current or 0) + 1
+
     async def get_by_id(self, task_id: int, on_error: bool = False, **kwargs) -> Optional[TaskCenterInfo]:
         if not task_id:
             raise ParameterException(message="查询任务失败, 参数 task_id 不允许为空")
@@ -47,10 +51,14 @@ class TaskCenterCrud(ScaffoldCrud[TaskCenterInfo, TaskCenterCreate, TaskCenterUp
             raise DataAlreadyExistsException(message=f"任务名称已存在: {task_in.task_name}")
         try:
             task_dict: Dict[str, Any] = task_in.model_dump(exclude_none=True, exclude_unset=True)
-            if "task_scheduler" in task_dict and task_dict["task_scheduler"] is not None:
-                task_dict["task_scheduler"] = task_dict["task_scheduler"].value
-            if "last_execute_state" in task_dict and task_dict["last_execute_state"] is not None:
-                task_dict["last_execute_state"] = task_dict["last_execute_state"].value
+            if "task_celery_scheduler" in task_dict and task_dict["task_celery_scheduler"] is not None:
+                task_dict["task_celery_scheduler"] = task_dict["task_celery_scheduler"].value
+            if "task_celery_status" in task_dict and task_dict["task_celery_status"] is not None:
+                task_dict["task_celery_status"] = task_dict["task_celery_status"].value
+            if task_dict.get("task_enabled"):
+                task_dict["task_version"] = 1
+            else:
+                task_dict.setdefault("task_version", 0)
             return await self.create(task_dict)
         except IntegrityError as e:
             LOGGER.error(f"新增任务失败: {e}\n{traceback.format_exc()}")
@@ -70,10 +78,12 @@ class TaskCenterCrud(ScaffoldCrud[TaskCenterInfo, TaskCenterCreate, TaskCenterUp
             exclude_unset=True,
             exclude={"task_id", "task_code"},
         )
-        if "task_scheduler" in update_dict and update_dict["task_scheduler"] is not None:
-            update_dict["task_scheduler"] = update_dict["task_scheduler"].value
-        if "last_execute_state" in update_dict and update_dict["last_execute_state"] is not None:
-            update_dict["last_execute_state"] = update_dict["last_execute_state"].value
+        if "task_celery_scheduler" in update_dict and update_dict["task_celery_scheduler"] is not None:
+            update_dict["task_celery_scheduler"] = update_dict["task_celery_scheduler"].value
+        if "task_celery_status" in update_dict and update_dict["task_celery_status"] is not None:
+            update_dict["task_celery_status"] = update_dict["task_celery_status"].value
+        if update_dict.get("task_enabled") is True and not instance.task_enabled:
+            update_dict["task_version"] = self._next_task_version(instance.task_version)
 
         task_name = update_dict.get("task_name", instance.task_name)
         existing = await self.model.filter(task_name=task_name, state__not=1).exclude(id=task_id).first()
@@ -99,8 +109,15 @@ class TaskCenterCrud(ScaffoldCrud[TaskCenterInfo, TaskCenterCreate, TaskCenterUp
 
     async def set_task_enabled(self, task_id: int, enabled: bool = True) -> TaskCenterInfo:
         instance = await self.get_by_id(task_id=task_id, on_error=True, state__not=1)
-        instance.task_enabled = enabled
-        await instance.save(update_fields=["task_enabled"])
+        update_fields = ["task_enabled"]
+        if enabled:
+            if not instance.task_enabled:
+                instance.task_version = self._next_task_version(instance.task_version)
+                update_fields.append("task_version")
+            instance.task_enabled = True
+        else:
+            instance.task_enabled = False
+        await instance.save(update_fields=update_fields)
         return instance
 
     async def select_tasks(self, search: Q, page: int, page_size: int, order: list) -> tuple:
