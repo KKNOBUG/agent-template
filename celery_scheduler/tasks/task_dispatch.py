@@ -66,7 +66,7 @@ async def _scan_and_dispatch_impl(task_type: Optional[str] = None) -> Dict[str, 
     }
 
 
-@celery.task(name="backend.celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks")
+@celery.task(name="celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks")
 def scan_and_dispatch_tasks(task_type: Optional[str] = None):
     """定时扫描：读取启用且配置了调度的任务，到期则按 task_celery_node 下发。
     

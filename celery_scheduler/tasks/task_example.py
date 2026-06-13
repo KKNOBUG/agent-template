@@ -13,7 +13,7 @@ from celery_scheduler.celery_worker import celery
 from configure import GLOBAL_CONFIG
 
 
-@celery.task(name="backend.celery_scheduler.tasks.task_example.task_example")
+@celery.task(name="celery_scheduler.tasks.task_example.task_example")
 async def task_example(write_number: int = 10, write_message: Optional[str] = None):
     if not write_number or not (0 < write_number <= 100):
         raise ValueError("参数传[max_number]逻辑错误，必须传递小于100的正整数类型")

@@ -43,7 +43,7 @@ class CeleryConfig(BaseSettings):
         task_imports = FileUtils.get_all_files(
             abspath=os.path.join(project.CELERY_SCHEDULER_DIR, "tasks"),
             return_full_path=False,
-            return_precut_path="backend.celery_scheduler.tasks.",
+            return_precut_path="celery_scheduler.tasks.",
             startswith="task",
             extension=".py",
             exclude_startswith="__",
@@ -81,7 +81,7 @@ class CeleryConfig(BaseSettings):
             "beat_schedule": {
                 "scan-task-center-tasks": {
                     "task": (
-                        "backend.celery_scheduler.tasks.task_dispatch"
+                        "celery_scheduler.tasks.task_dispatch"
                         ".scan_and_dispatch_tasks"
                     ),
                     "schedule": 60.0,

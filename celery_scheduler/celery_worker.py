@@ -33,7 +33,7 @@ from .celery_base import (
 
 _async_event_loop_pool = None
 
-_SCAN_TASK_NAME = "backend.celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks"
+_SCAN_TASK_NAME = "celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks"
 
 # Celery 框架 logger：仅 WARNING+，屏蔽 trace 的 Task ... succeeded in ... 等 INFO
 _CELERY_QUIET_LOGGERS = (
@@ -422,8 +422,8 @@ def create_celery():
 
 celery = create_celery()
 
-# Worker: celery -A backend.celery_scheduler.celery_worker worker -Q default -c 4 -l INFO
-# Beat:   celery -A backend.celery_scheduler.celery_worker beat -l INFO
+# Worker: celery -A celery_scheduler.celery_worker worker -Q default -c 4 -l INFO
+# Beat:   celery -A celery_scheduler.celery_worker beat -l INFO
 
 if __name__ == "__main__":
     import sys
