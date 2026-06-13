@@ -34,10 +34,13 @@ class ProjectConfig(BaseSettings):
     # 项目描述
     APP_VERSION: str = "1.0.0"
     APP_TITLE: str = "企业级RAG问答系统"
-    APP_DESCRIPTION: str = """企业级RAG问答系统"""
-    APP_DOCS_URL: str = "/KeenRobot/docs"
-    APP_REDOC_URL: str = "/KeenRobot/redoc"
-    APP_OPENAPI_URL: str = "/KeenRobot/openapi_url"
+    APP_DESCRIPTION: str = """
+    - 企业级 RAG（检索增强生成）问答系统后端。
+    - 基于 FastAPI 构建，提供用户认证、知识库管理、模型配置、任务调度与流式智能问答能力。
+    """
+    APP_DOCS_URL: str = "/docs"
+    APP_REDOC_URL: str = "/redoc"
+    APP_OPENAPI_URL: str = "/openapi_url"
     APP_OPENAPI_JS_URL: str = "/static/swagger-ui/swagger-ui-bundle.js"
     APP_OPENAPI_CSS_URL: str = "/static/swagger-ui/swagger-ui.css"
     APP_OPENAPI_FAVICON_URL: str = "/static/swagger-ui/favicon-32x32.png"
