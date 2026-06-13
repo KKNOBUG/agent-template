@@ -73,25 +73,29 @@ class TaskCenterRecordCrud(ScaffoldCrud[TaskCenterRecord, TaskCenterRecordCreate
                     start_begin = datetime.strptime(record_in.celery_start_time_begin.strip()[:19], "%Y-%m-%d %H:%M:%S")
                     q &= Q(celery_start_time__gte=start_begin)
                 except ValueError:
-                    pass
+                    LOGGER.error(f"日期格式解析失败: celery_start_time_begin={record_in.celery_start_time_begin}")
+                    raise ParameterException(message=f"日期格式错误: {record_in.celery_start_time_begin}")
             if record_in.celery_start_time_end:
                 try:
                     start_end = datetime.strptime(record_in.celery_start_time_end.strip()[:19], "%Y-%m-%d %H:%M:%S")
                     q &= Q(celery_start_time__lte=start_end)
                 except ValueError:
-                    pass
+                    LOGGER.error(f"日期格式解析失败: celery_start_time_end={record_in.celery_start_time_end}")
+                    raise ParameterException(message=f"日期格式错误: {record_in.celery_start_time_end}")
             if record_in.celery_end_time_begin:
                 try:
                     end_begin = datetime.strptime(record_in.celery_end_time_begin.strip()[:19], "%Y-%m-%d %H:%M:%S")
                     q &= Q(celery_end_time__gte=end_begin)
                 except ValueError:
-                    pass
+                    LOGGER.error(f"日期格式解析失败: celery_end_time_begin={record_in.celery_end_time_begin}")
+                    raise ParameterException(message=f"日期格式错误: {record_in.celery_end_time_begin}")
             if record_in.celery_end_time_end:
                 try:
                     end_end = datetime.strptime(record_in.celery_end_time_end.strip()[:19], "%Y-%m-%d %H:%M:%S")
                     q &= Q(celery_end_time__lte=end_end)
                 except ValueError:
-                    pass
+                    LOGGER.error(f"日期格式解析失败: celery_end_time_end={record_in.celery_end_time_end}")
+                    raise ParameterException(message=f"日期格式错误: {record_in.celery_end_time_end}")
 
             return await self.list(
                 page=record_in.page,

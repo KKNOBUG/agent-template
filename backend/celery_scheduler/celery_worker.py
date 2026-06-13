@@ -72,7 +72,7 @@ def get_async_event_loop_pool():
 
 def _get_task_id_from_request(request) -> Optional[Any]:
     """TaskCenterInfo 主键，来自 Celery 消息 properties.__task_id。"""
-    return request.properties.get("__task_id", None)
+    return getattr(request, "properties", {}).get("__task_id", None)
 
 
 async def _ensure_tortoise_then_create_task_record(
@@ -293,7 +293,7 @@ def create_celery():
                 args, kwargs, task_id, producer, link, link_error, shadow, **options
             )
 
-        def handel_task_record(self, success: bool, result_or_error: str, traceback_str: str = None):
+        def handle_task_record(self, success: bool, result_or_error: str, traceback_str: str = None):
             task_center_task_id = _get_task_id_from_request(self.request)
             if self.request.id and self.name != _SCAN_TASK_NAME and task_center_task_id is not None:
                 try:
@@ -319,10 +319,18 @@ def create_celery():
             celery_id = task_id
             task_center_task_id = _get_task_id_from_request(self.request)
             task_celery_node = self.name or ""
-            success = not (isinstance(retval, dict) and retval.get("success") is False)
-            summary = str(retval.get("error") or retval) if isinstance(retval, dict) and not success else (
-                str(retval) if retval is not None else ""
-            )
+            
+            # 解析任务执行结果
+            if isinstance(retval, dict):
+                success = retval.get("success", True) is not False
+                if not success:
+                    summary = str(retval.get("error") or retval)
+                else:
+                    summary = str(retval)
+            else:
+                success = True
+                summary = str(retval) if retval is not None else ""
+            
             if task_celery_node == _SCAN_TASK_NAME:
                 if success and isinstance(retval, dict):
                     LOGGER.info(
@@ -354,7 +362,7 @@ def create_celery():
                     f"任务调度节点: {task_celery_node}\n"
                     f"错误描述: {summary}\n"
                 )
-            self.handel_task_record(success, summary)
+            self.handle_task_record(success, summary)
             return super(ContextTask, self).on_success(retval, task_id, args, kwargs)
 
         def on_failure(self, exc, task_id, args, kwargs, einfo):
@@ -379,7 +387,7 @@ def create_celery():
                     f"错误描述: {exc}\n"
                     f"错误回溯: {traceback.format_exc()}\n"
                 )
-            self.handel_task_record(False, str(exc) if exc else "", getattr(einfo, "traceback", None) or "")
+            self.handle_task_record(False, str(exc) if exc else "", getattr(einfo, "traceback", None) or "")
             return super(ContextTask, self).on_failure(exc, task_id, args, kwargs, einfo)
 
         def __call__(self, *args, **kwargs):
