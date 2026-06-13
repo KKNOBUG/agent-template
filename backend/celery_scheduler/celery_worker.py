@@ -33,6 +33,23 @@ from .celery_base import (
 
 _async_event_loop_pool = None
 
+_SCAN_TASK_NAME = "backend.celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks"
+
+# Celery 框架 logger：仅 WARNING+，屏蔽 trace 的 Task ... succeeded in ... 等 INFO
+_CELERY_QUIET_LOGGERS = (
+    "celery",
+    "celery.worker",
+    "celery.app",
+    "celery.app.trace",
+    "celery.pool",
+    "kombu",
+    "billiard",
+    "redis",
+    "redbeat",
+    "amqp",
+    "logging",
+)
+
 
 @worker_process_init.connect
 def _reset_async_pool_and_tortoise_after_fork(**kwargs):
@@ -180,7 +197,6 @@ def receiver_task_pre_run(task: Task, *args, **kwargs):
     celery_id = task.request.id
     celery_node = (task.name or "").strip()
     try:
-        _SCAN_TASK_NAME = "backend.celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks"
         if celery_node == _SCAN_TASK_NAME:
             ensure_tortoise_orm_initialized()
         elif task_id is not None:
@@ -222,7 +238,10 @@ def receiver_task_pre_run(task: Task, *args, **kwargs):
 
 @setup_logging.connect
 def setup_loggers(*args, **kwargs):
+    """统一 Celery 日志：框架 trace 等仅 WARNING+，避免 Task succeeded in ... 刷屏。"""
     logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO)
+    for name in _CELERY_QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
 
 
 class TaskRequest(Request):
@@ -271,7 +290,6 @@ def create_celery():
             )
 
         def handel_task_record(self, success: bool, result_or_error: str, traceback_str: str = None):
-            _SCAN_TASK_NAME = "backend.celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks"
             task_center_task_id = _get_task_id_from_request(self.request)
             if self.request.id and self.name != _SCAN_TASK_NAME and task_center_task_id is not None:
                 try:
@@ -301,7 +319,23 @@ def create_celery():
             summary = str(retval.get("error") or retval) if isinstance(retval, dict) and not success else (
                 str(retval) if retval is not None else ""
             )
-            if success:
+            if celery_node == _SCAN_TASK_NAME:
+                if success and isinstance(retval, dict):
+                    LOGGER.info(
+                        f"【Worker】任务扫描完成: \n"
+                        f"调度ID: {celery_id}\n"
+                        f"调度节点: {_SCAN_TASK_NAME}\n"
+                        f"扫描数量: {retval.get('scanned')}, 调度数量: {retval.get('dispatched')}, 跳过数量: {retval.get('skipped')}\n"
+                        f"扫描描述: {retval.get('desc')}"
+                    )
+                else:
+                    LOGGER.error(
+                        f"【Worker】任务扫描失败: \n"
+                        f"调度ID: {celery_id}\n"
+                        f"调度节点: {_SCAN_TASK_NAME}\n"
+                        f"错误描述: {summary}\n"
+                    )
+            elif success:
                 LOGGER.info(
                     f"【Worker】任务执行成功: \n"
                     f"任务ID: {task_center_task_id}\n"
@@ -323,15 +357,24 @@ def create_celery():
             celery_id = task_id
             task_center_task_id = _get_task_id_from_request(self.request)
             celery_node = self.name or ""
-            LOGGER.error(
-                f"【Worker】任务执行失败: \n"
-                f"任务ID: {task_center_task_id}\n"
-                f"调度ID: {celery_id}\n"
-                f"调度节点: {celery_node}\n"
-                f"错误类型: {type(exc).__name__}\n"
-                f"错误描述: {exc}\n"
-                f"错误回溯: {traceback.format_exc()}\n"
-            )
+            if celery_node == _SCAN_TASK_NAME:
+                LOGGER.error(
+                    f"【Worker】任务扫描失败: \n"
+                    f"调度ID: {celery_id}\n"
+                    f"错误类型: {type(exc).__name__}\n"
+                    f"错误描述: {exc}\n"
+                    f"错误回溯: {traceback.format_exc()}\n"
+                )
+            else:
+                LOGGER.error(
+                    f"【Worker】任务执行失败: \n"
+                    f"任务ID: {task_center_task_id}\n"
+                    f"调度ID: {celery_id}\n"
+                    f"调度节点: {celery_node}\n"
+                    f"错误类型: {type(exc).__name__}\n"
+                    f"错误描述: {exc}\n"
+                    f"错误回溯: {traceback.format_exc()}\n"
+                )
             self.handel_task_record(False, str(exc) if exc else "", getattr(einfo, "traceback", None) or "")
             return super(ContextTask, self).on_failure(exc, task_id, args, kwargs, einfo)
 

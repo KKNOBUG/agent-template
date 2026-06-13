@@ -36,7 +36,8 @@ def dispatch_task_center_task(task: Any, override_kwargs: Optional[Dict[str, Any
 
 async def _scan_and_dispatch_impl() -> Dict[str, Any]:
     tasks = await get_scheduled_tasks(task_type="example")
-    dispatched = 0
+    scanned: int = len(tasks)
+    dispatched: int = 0
     for task in tasks:
         try:
             if await check_task_expired(task):
@@ -51,7 +52,21 @@ async def _scan_and_dispatch_impl() -> Dict[str, Any]:
                 f"错误描述: {e}\n"
                 f"错误回溯: {traceback.format_exc()}\n"
             )
-    return {"scanned": len(tasks), "dispatched": dispatched, "skipped": len(tasks) - dispatched}
+    skipped: int = scanned - dispatched
+    if dispatched and skipped:
+        desc: str = "已发现可调度任务, 但部分任务未到期，仅提交到期任务"
+    elif dispatched > 0:
+        desc: str = "已发现可调度任务, 全部提交"
+    elif skipped > 0:
+        desc: str = "未发现可调度任务, 全部跳过"
+    else:
+        desc: str = "暂未发现启用并可调度的任务, 等待下次扫描"
+    return {
+        "scanned": scanned,
+        "dispatched": dispatched,
+        "skipped": skipped,
+        "desc": desc
+    }
 
 
 @celery.task(name="backend.celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks")
