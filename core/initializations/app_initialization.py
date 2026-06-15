@@ -173,6 +173,8 @@ def register_routers(app: FastAPI) -> None:
     from applications.base.views import base_public, base_secure, router_secure, audit_secure
     from applications.user.views import user_public_router, user_secure_router
     from applications.example.views import example_category_router, example_product_router
+    from applications.weixianzhe.views import test_case_gen_router
+    from applications.zhoushengjie.views import case_recommendation_router
 
     # 挂在路由蓝图
     app.include_router(router=base_public, prefix="/base", tags=["基础服务"])
@@ -183,6 +185,8 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=user_secure_router, prefix="/user", tags=["用户服务"], dependencies=[DependAuth])
     app.include_router(router=example_category_router, prefix="/example", tags=["示例服务-商品分类"], dependencies=[DependAuth])
     app.include_router(router=example_product_router, prefix="/example", tags=["示例服务-商品模型"], dependencies=[DependAuth])
+    app.include_router(router=case_recommendation_router, prefix="/case-recommendation", tags=["用例推荐"])
+    app.include_router(router=test_case_gen_router, prefix="/test-case-gen", tags=["测试用例生成"])
 
     from applications.agent.views import mcp_servers_router, skills_router
     from applications.conversation.views import chat_router, history_router

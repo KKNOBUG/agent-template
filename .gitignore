@@ -22,3 +22,11 @@ venv/
 core/chroma_db/chroma.sqlite3
 output/logs/*
 output/upload/*
+
+cache/
+
+workspace/*
+!workspace/.claude
+!workspace/.claude/**
+
+.env
