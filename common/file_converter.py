@@ -6,7 +6,7 @@
 @DateTime: 2026/6/11
 
 使用 docling 将办公文档（DOCX、PPTX、XLSX、HTML、PDF）转换为 Markdown。
-支持离线模式：当 backend/cache 目录存在时，使用本地模型缓存；
+支持离线模式：当 docling_offline 目录存在时，使用本地模型缓存；
 否则使用 docling 默认配置（联网下载模型）。
 """
 import os
@@ -28,19 +28,19 @@ def _init_converter():
     if _CONVERTER is not None:
         return _CONVERTER
 
-    cache_dir = Path(PROJECT_CONFIG.CACHE_DIR)
-    use_offline = cache_dir.is_dir()
+    offline_dir = Path(PROJECT_CONFIG.DOCLING_OFFLINE_DIR)
+    use_offline = offline_dir.is_dir()
 
     if use_offline:
-        LOGGER.info(f"[file_converter] 检测到本地缓存目录，启用离线模式: {cache_dir}")
+        LOGGER.info(f"[file_converter] 检测到离线模型目录，启用离线模式: {offline_dir}")
         # 设置离线环境变量
         os.environ["HF_HUB_OFFLINE"] = "1"
         os.environ["TRANSFORMERS_OFFLINE"] = "1"
         os.environ["HF_DATASETS_OFFLINE"] = "1"
 
-        models_dir = cache_dir / "docling" / "models"
-        rapid_ocr_dir = cache_dir / "rapidocr"
-        hf_cache_dir = cache_dir / "huggingface"
+        models_dir = offline_dir / "docling" / "models"
+        rapid_ocr_dir = offline_dir / "rapidocr"
+        hf_cache_dir = offline_dir / "huggingface"
         os.environ["HF_HOME"] = str(hf_cache_dir)
 
         from docling.datamodel.base_models import InputFormat  # noqa: E402
@@ -85,7 +85,7 @@ def _init_converter():
             }
         )
     else:
-        LOGGER.info("[file_converter] 未检测到本地缓存目录，使用 docling 默认在线模式")
+        LOGGER.info("[file_converter] 未检测到离线模型目录，使用 docling 默认在线模式")
         from docling.document_converter import DocumentConverter  # noqa: E402
         _CONVERTER = DocumentConverter()
 

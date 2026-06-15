@@ -23,7 +23,7 @@ core/chroma_db/chroma.sqlite3
 output/logs/*
 output/upload/*
 
-cache/
+docling_offline/
 
 workspace/*
 !workspace/.claude

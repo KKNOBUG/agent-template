@@ -52,7 +52,7 @@ class ProjectConfig(BaseSettings):
     SERVER_RELOAD_EXCLUDES: List[str] = [
         "*/workspace/*",
         "*/output/*",
-        "*/cache/*",
+        "*/docling_offline/*",
         "*/.venv/*",
         "*/__pycache__/*",
     ]
@@ -93,7 +93,7 @@ class ProjectConfig(BaseSettings):
     STATIC_IMG_DIR: str = os.path.abspath(os.path.join(STATIC_DIR, "image"))
     MIGRATION_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "migrations"))
     CHROMA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "chroma_db"))
-    CACHE_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "cache"))
+    DOCLING_OFFLINE_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "docling_offline"))
     WORKSPACE_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "workspace"))
 
 
