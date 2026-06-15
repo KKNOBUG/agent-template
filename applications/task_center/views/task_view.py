@@ -2,7 +2,7 @@
 import traceback
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, Form, Query
 from tortoise.expressions import Q
 
 from applications.task_center.dependencies import get_task_crud, get_task_record_crud
@@ -181,13 +181,10 @@ async def search_tasks_info(
 
 @tasks.post("/run", summary="任务中心-立即执行任务")
 async def run_task_info(
-        task_in: dict = Body(..., description="任务ID"),
+        task_id: int = Form(..., description="任务ID"),
         task_crud: TaskCenterCrud = Depends(get_task_crud),
 ):
     try:
-        task_id = task_in.get("task_id")
-        if task_id is None:
-            return ParameterResponse(message="参数 task_id 不能为空")
         task = await task_crud.get_by_id(task_id=task_id, on_error=True, state__not=1)
         from celery_scheduler.tasks.task_dispatch import dispatch_task_center_task
 
@@ -207,13 +204,10 @@ async def run_task_info(
 
 @tasks.post("/start", summary="任务中心-启动任务（启用调度）")
 async def start_task_info(
-        task_in: dict = Body(..., description="任务ID"),
+        task_id: int = Form(..., description="任务ID"),
         task_crud: TaskCenterCrud = Depends(get_task_crud),
 ):
     try:
-        task_id = task_in.get("task_id")
-        if task_id is None:
-            return ParameterResponse(message="参数 task_id 不能为空")
         instance = await task_crud.set_task_enabled(task_id=task_id, enabled=True)
         data = await instance.to_dict(
             exclude_fields=_TASK_DICT_EXCLUDE,
@@ -229,13 +223,10 @@ async def start_task_info(
 
 @tasks.post("/stop", summary="任务中心-停止任务（关闭调度）")
 async def stop_task_info(
-        task_in: dict = Body(..., description="任务ID"),
+        task_id: int = Form(..., description="任务ID"),
         task_crud: TaskCenterCrud = Depends(get_task_crud),
 ):
     try:
-        task_id = task_in.get("task_id")
-        if task_id is None:
-            return ParameterResponse(message="参数 task_id 不能为空")
         instance = await task_crud.set_task_enabled(task_id=task_id, enabled=False)
         data = await instance.to_dict(
             exclude_fields=_TASK_DICT_EXCLUDE,
