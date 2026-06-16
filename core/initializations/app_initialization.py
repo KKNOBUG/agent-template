@@ -194,7 +194,7 @@ def register_routers(app: FastAPI) -> None:
     from applications.model_config.views import model_router
 
     app.include_router(router=chat_router, prefix="/chat", tags=["RAG-对话"], dependencies=[DependAuth])
-    app.include_router(router=history_router, prefix="/conversations", tags=["RAG-对话历史"], dependencies=[DependAuth])
+    app.include_router(router=history_router, prefix="/conversations", tags=["RAG-历史"], dependencies=[DependAuth])
     app.include_router(router=knowledge_router, prefix="/knowledge-bases", tags=["RAG-知识库"], dependencies=[DependAuth])
     app.include_router(router=model_router, prefix="/model-configs", tags=["RAG-模型配置"], dependencies=[DependAuth])
     app.include_router(router=skills_router, prefix="/skills", tags=["RAG-Agent技能"], dependencies=[DependAuth])

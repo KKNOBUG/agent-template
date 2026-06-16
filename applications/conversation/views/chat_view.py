@@ -19,7 +19,7 @@ from core.responses import (
 )
 from services import DependAuth
 
-chat = APIRouter(tags=["chat"])
+chat = APIRouter()
 
 
 @chat.post("/stream", summary="对话-流式问答")
