@@ -57,12 +57,12 @@ register_middlewares(app)
 register_routers(app)
 
 
-@app.get("/", summary="root")
+@app.get("/", summary="root", tags=["基础服务"])
 async def root():
-    return SuccessResponse(message="KeenRobot FastAPI Started Successfully!")
+    return SuccessResponse(message="FastAPI Applications Started Successfully!")
 
 
-@app.get("/health", summary="健康检查")
+@app.get("/health", summary="健康检查", tags=["基础服务"])
 async def health_check():
     return {"status": "ok", "version": PROJECT_CONFIG.APP_VERSION, "orm": "tortoise-orm"}
 
