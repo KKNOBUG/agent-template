@@ -7,6 +7,7 @@ from applications.model_config.schemas.model_config_schema import (
     ModelConfigCreate,
     ModelConfigUpdate,
 )
+from applications.model_config.services.secret_utils import encrypt_api_key
 from applications.user.models.user_model import User
 from core.exceptions import NotFoundException
 
@@ -15,6 +16,36 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
     def __init__(self):
         super().__init__(model=ModelConfig)
 
+    @staticmethod
+    def _should_skip_api_key_update(value: Optional[str]) -> bool:
+        if value is None:
+            return True
+        stripped = value.strip()
+        if not stripped:
+            return True
+        return "***" in stripped
+
+    @staticmethod
+    def _prepare_api_key(value: Optional[str]) -> Optional[str]:
+        if not value or not value.strip():
+            return None
+        return encrypt_api_key(value.strip())
+
+    def _prepare_create_dict(self, data: ModelConfigCreate) -> dict:
+        obj_dict = data.create_dict()
+        if "llm_api_key" in obj_dict:
+            obj_dict["llm_api_key"] = self._prepare_api_key(obj_dict.get("llm_api_key"))
+        return obj_dict
+
+    def _prepare_update_dict(self, data: ModelConfigUpdate) -> dict:
+        obj_dict = data.model_dump(exclude_unset=True, exclude={"config_id"})
+        if "llm_api_key" in obj_dict:
+            if self._should_skip_api_key_update(obj_dict.get("llm_api_key")):
+                obj_dict.pop("llm_api_key")
+            else:
+                obj_dict["llm_api_key"] = self._prepare_api_key(obj_dict["llm_api_key"])
+        return obj_dict
+
     async def list_by_user(self, user_id: int) -> List[ModelConfig]:
         """获取用户的模型配置列表"""
         return await self.model.filter(user_id=user_id).order_by(
@@ -22,7 +53,7 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         )
 
     async def get_by_id_and_user(
-            self, config_id: str, user_id: int
+        self, config_id: str, user_id: int
     ) -> Optional[ModelConfig]:
         """根据 ID 和用户 ID 获取模型配置"""
         return await self.model.get_or_none(id=config_id, user_id=user_id)
@@ -35,7 +66,7 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         return await self.model.filter(user_id=user_id).order_by("created_time").first()
 
     async def clear_default(
-            self, user_id: int, exclude_id: Optional[str] = None
+        self, user_id: int, exclude_id: Optional[str] = None
     ) -> None:
         """清除用户的默认配置标记"""
         qs = self.model.filter(user_id=user_id, is_default=True)
@@ -44,7 +75,7 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         await qs.update(is_default=False)
 
     async def get_first_other(
-            self, user_id: int, exclude_id: str
+        self, user_id: int, exclude_id: str
     ) -> Optional[ModelConfig]:
         """获取用户除指定配置外的第一条配置"""
         return (
@@ -59,12 +90,12 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         return await self.list_by_user(current_user.id)
 
     async def create_config(
-            self, current_user: User, data: ModelConfigCreate
+        self, current_user: User, data: ModelConfigCreate
     ) -> ModelConfig:
         """创建模型配置"""
         if data.is_default:
             await self.clear_default(current_user.id)
-        obj_dict = data.create_dict()
+        obj_dict = self._prepare_create_dict(data)
         obj_dict["user_id"] = current_user.id
         return await self.create(obj_dict)
 
@@ -76,14 +107,14 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         return config
 
     async def update_config(
-            self, config_id: str, current_user: User, data: ModelConfigUpdate
+        self, config_id: str, current_user: User, data: ModelConfigUpdate
     ) -> ModelConfig:
         """更新模型配置"""
         effective_id = data.config_id or config_id
         config = await self.get_config(effective_id, current_user)
         if data.is_default:
             await self.clear_default(current_user.id, exclude_id=effective_id)
-        obj_dict = data.model_dump(exclude_unset=True, exclude={"config_id"})
+        obj_dict = self._prepare_update_dict(data)
         if obj_dict:
             config = config.update_from_dict(obj_dict)
             await config.save()
@@ -107,34 +138,21 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         await config.save()
 
     async def get_default(self, current_user: User) -> ModelConfig:
-        """获取默认模型配置：优先当前用户，其次管理员默认"""
+        """获取当前用户的默认模型配置"""
         config = await self.get_default_config(current_user.id)
         if config:
             return config
-        admin = await User.get_or_none(username="admin")
-        if admin:
-            config = await self.get_default_config(admin.id)
-            if config:
-                return config
         raise NotFoundException(message="没有找到模型配置")
 
     async def resolve_for_chat(
-            self,
-            current_user: User,
-            model_config_id: Optional[str] = None,
+        self,
+        current_user: User,
+        model_config_id: Optional[str] = None,
     ) -> Optional[ModelConfig]:
-        """解析聊天场景使用的模型配置：优先当前用户指定/默认，其次降级为管理员默认"""
+        """解析聊天场景使用的模型配置：指定 ID 或当前用户默认；无则 None（走 .env 兜底）"""
         if model_config_id:
             config = await self.get_by_id_and_user(model_config_id, current_user.id)
             if config:
                 return config
 
-        config = await self.get_default_config(current_user.id)
-        if config:
-            return config
-
-        admin = await User.get_or_none(username="admin")
-        if admin:
-            return await self.get_default_config(admin.id)
-
-        return None
+        return await self.get_default_config(current_user.id)

@@ -19,9 +19,13 @@ class ModelConfig(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
         on_delete=fields.CASCADE,
         description="所属用户",
     )
-    name = fields.CharField(max_length=64, default="默认配置", description="配置名称")
-    description = fields.CharField(max_length=255, null=True, description="配置说明")
-    model_name = fields.CharField(max_length=64, default="deepseek-chat", description="模型名称")
+    config_name = fields.CharField(max_length=64, default="默认配置", description="配置名称")
+    config_desc = fields.CharField(max_length=255, null=True, description="配置说明")
+    model_provider = fields.CharField(max_length=32, default="custom", description="模型所属供应商")
+    model_thinking = fields.BooleanField(default=False, description="模型深度思考开关")
+    llm_api_key = fields.CharField(max_length=512, null=True, description="LLM API Key（加密存储）")
+    llm_base_url = fields.CharField(max_length=512, null=True, description="LLM API Base URL")
+    llm_model_name = fields.CharField(max_length=64, default="deepseek-chat", description="API model 参数")
     temperature = fields.FloatField(default=0.7, description="温度(控制AI回答随机性)")
     max_tokens = fields.IntField(default=4096, description="限制单次回答的最大输出Token数")
     top_p = fields.FloatField(default=0.95, description="Top P(核采样参数)")

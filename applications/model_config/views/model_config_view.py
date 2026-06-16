@@ -1,20 +1,27 @@
 # -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : KeenRobot
+@Module  : model_config_view.py
+@DateTime: 2026/6/9
+"""
 import traceback
 
 from fastapi import APIRouter, Depends
 
-from applications.model_config.dependencies import get_model_config_crud
-from applications.model_config.schemas.model_config_schema import (
+from backend.applications.model_config.dependencies import get_model_config_crud
+from backend.applications.model_config.schemas.model_config_schema import (
     ModelConfigCreate,
     ModelConfigOut,
     ModelConfigUpdate,
 )
-from applications.model_config.services.model_config_crud import ModelConfigCrud
-from applications.user.models.user_model import User
-from configure import LOGGER
-from core.exceptions import NotFoundException
-from core.responses import SuccessResponse, FailureResponse, NotFoundResponse
-from services import DependAuth
+from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
+from backend.applications.user.models.user_model import User
+from backend.configure import LOGGER
+from backend.core.exceptions import NotFoundException
+from backend.core.responses import SuccessResponse, FailureResponse, NotFoundResponse
+from backend.services import DependAuth
 
 model_config = APIRouter()
 
@@ -27,7 +34,7 @@ async def list_model_configs(
     try:
         items = await model_config_crud.list_configs(current_user)
         data = [
-            ModelConfigOut.model_validate(item).model_dump()
+            ModelConfigOut.from_model(item).model_dump()
             for item in items
         ]
         return SuccessResponse(data=data, total=len(data))
@@ -44,7 +51,7 @@ async def create_model_config(
 ):
     try:
         instance = await model_config_crud.create_config(current_user, config_data)
-        data = ModelConfigOut.model_validate(instance).model_dump()
+        data = ModelConfigOut.from_model(instance).model_dump()
         return SuccessResponse(data=data)
     except Exception as e:
         LOGGER.error(f"创建模型配置失败: {e}\n{traceback.format_exc()}")
@@ -58,7 +65,7 @@ async def get_default_config(
 ):
     try:
         instance = await model_config_crud.get_default(current_user)
-        data = ModelConfigOut.model_validate(instance).model_dump()
+        data = ModelConfigOut.from_model(instance).model_dump()
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
@@ -75,7 +82,7 @@ async def get_model_config(
 ):
     try:
         instance = await model_config_crud.get_config(config_id, current_user)
-        data = ModelConfigOut.model_validate(instance).model_dump()
+        data = ModelConfigOut.from_model(instance).model_dump()
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
@@ -95,7 +102,7 @@ async def update_model_config(
         instance = await model_config_crud.update_config(
             config_id, current_user, config_data
         )
-        data = ModelConfigOut.model_validate(instance).model_dump()
+        data = ModelConfigOut.from_model(instance).model_dump()
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)

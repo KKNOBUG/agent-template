@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : KeenRobot
+@Module  : project_config.py
+@DateTime: 2025/1/15 16:08
+"""
 import os.path
 import platform
 from functools import lru_cache
@@ -10,7 +17,7 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
-from common import FileUtils, ShellUtils
+from backend.common import FileUtils, ShellUtils
 
 _BACKEND_PROJECT_ROOT: str = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 _BACKEND_PROJECT_CONF: str = os.path.join(_BACKEND_PROJECT_ROOT, ".env")
@@ -27,13 +34,10 @@ class ProjectConfig(BaseSettings):
     # 项目描述
     APP_VERSION: str = "1.0.0"
     APP_TITLE: str = "企业级RAG问答系统"
-    APP_DESCRIPTION: str = """
-    - 企业级 RAG（检索增强生成）问答系统后端。
-    - 基于 FastAPI 构建，提供用户认证、知识库管理、模型配置、任务调度与流式智能问答能力。
-    """
-    APP_DOCS_URL: str = "/docs"
-    APP_REDOC_URL: str = "/redoc"
-    APP_OPENAPI_URL: str = "/openapi_url"
+    APP_DESCRIPTION: str = """企业级RAG问答系统"""
+    APP_DOCS_URL: str = "/KeenRobot/docs"
+    APP_REDOC_URL: str = "/KeenRobot/redoc"
+    APP_OPENAPI_URL: str = "/KeenRobot/openapi_url"
     APP_OPENAPI_JS_URL: str = "/static/swagger-ui/swagger-ui-bundle.js"
     APP_OPENAPI_CSS_URL: str = "/static/swagger-ui/swagger-ui.css"
     APP_OPENAPI_FAVICON_URL: str = "/static/swagger-ui/favicon-32x32.png"
@@ -85,14 +89,15 @@ class ProjectConfig(BaseSettings):
     MIGRATION_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "migrations"))
     CHROMA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "chroma_db"))
 
+
     # RAG / LLM / Embedding
     CHROMA_COLLECTION: str = "knowledge_base"
     LLM_API_KEY: str = Field(default="", description="LLM API Key")
     LLM_BASE_URL: str = Field(default="", description="LLM API Base URL")
-    DEFAULT_LLM_MODEL: str = Field(default="", description="Default LLM Model")
+    LLM_MODEL_NAME: str = Field(default="", description="LLM Model Name")
     EMBEDDING_API_KEY: str = Field(default="", description="Embedding API Key")
     EMBEDDING_BASE_URL: str = Field(default="", description="Embedding API Base URL")
-    DEFAULT_EMBEDDING_MODEL: str = Field(default="", description="Default Embedding Model")
+    EMBEDDING_MODEL_NAME: str = Field(default="", description="Embedding Model Name")
 
     # RAG 分块 / 检索全局默认值（.env 可选；不写则用下列 default）
     # - CHUNK_SIZE / CHUNK_OVERLAP：KnowledgeBase.chunk_* 为空时回退；仅影响新上传/重处理文档
@@ -156,7 +161,7 @@ class ProjectConfig(BaseSettings):
     ]
 
     # 应用注册
-    APPLICATIONS_MODULE: str = "applications"
+    APPLICATIONS_MODULE: str = "backend.applications"
     APPLICATIONS_INSTALLED: List[str] = FileUtils.get_all_dirs(
         abspath=APPLICATIONS_DIR,
         return_full_path=False,

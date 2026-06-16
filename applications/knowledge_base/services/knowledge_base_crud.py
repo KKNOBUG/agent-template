@@ -37,7 +37,7 @@ from core.exceptions import (
     NotFoundException,
     ParameterException,
 )
-from enums.chat_session_enum import DocumentStatus
+from enums import DocumentStatus
 
 
 class DocumentCrud(ScaffoldCrud[Document, DocumentCreate, DocumentUpdate]):
@@ -208,7 +208,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             is_public=kb.is_public,
             chunk_size=kb.chunk_size,
             chunk_overlap=kb.chunk_overlap,
-            default_embedding_model=PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL,
+            default_embedding_model=PROJECT_CONFIG.EMBEDDING_MODEL_NAME,
             created_time=kb.created_time,
             updated_time=kb.updated_time,
             document_count=doc_count,
@@ -281,7 +281,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         doc.status = DocumentStatus.PROCESSING
         doc.error_message = None
         doc.chunk_count = 0
-        doc.embedding_model = PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
+        doc.embedding_model = PROJECT_CONFIG.EMBEDDING_MODEL_NAME
         await doc.save()
 
         try:
@@ -391,7 +391,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                 file_path=str(file_path),
                 file_size=len(content),
                 content_hash=content_hash,
-                embedding_model=PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL,
+                embedding_model=PROJECT_CONFIG.EMBEDDING_MODEL_NAME,
                 status=DocumentStatus.PROCESSING,
             )
         except IntegrityError:

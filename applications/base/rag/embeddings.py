@@ -78,7 +78,7 @@ def get_embedding(texts: List[str], model: str = None) -> List[List[float]]:
     if not api_key:
         raise ValueError("EMBEDDING_API_KEY 未设置，请在 .env 中配置 Embedding API Key")
 
-    model = model or PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
+    model = model or PROJECT_CONFIG.EMBEDDING_MODEL_NAME
     sanitized = [t for t in texts if t and str(t).strip()]
     if not sanitized:
         return []

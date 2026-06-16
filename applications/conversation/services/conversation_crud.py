@@ -27,6 +27,7 @@ from applications.conversation.schemas.conversation_schema import (
 from applications.knowledge_base.models.knowledge_base_model import KnowledgeBase
 from applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
 from applications.model_config.models.model_config_model import ModelConfig
+from applications.model_config.services.llm_connection import resolve_chat_llm_params
 from applications.model_config.services.model_config_crud import ModelConfigCrud
 from applications.user.models.user_model import User
 from core.exceptions import NotFoundException
@@ -288,34 +289,18 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             enable_thinking: bool = False,
     ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成聊天回复"""
-        if model_config:
-            llm_params = {
-                "model_name": model_config.model_name,
-                "temperature": model_config.temperature,
-                "max_tokens": model_config.max_tokens,
-                "top_p": model_config.top_p,
-                "system_prompt": model_config.system_prompt,
-                "top_k": model_config.top_k,
-                "score_threshold": model_config.score_threshold,
-                "max_history_rounds": model_config.max_history_rounds,
-            }
-        else:
-            llm_params = {
-                "model_name": "deepseek-v4-flash",
-                "temperature": 0.7,
-                "max_tokens": 4096,
-                "top_p": 0.95,
-                "system_prompt": None,
-                "top_k": 5,
-                "score_threshold": 0.0,
-                "max_history_rounds": 10,
-            }
+        llm_params = resolve_chat_llm_params(model_config)
+        effective_thinking = (
+                enable_thinking
+                and model_config is not None
+                and model_config.model_thinking
+        )
 
         async for chunk in rag_stream(
                 question=question,
                 knowledge_base_ids=knowledge_base_ids,
                 chat_history=chat_history,
-                enable_thinking=enable_thinking,
+                enable_thinking=effective_thinking,
                 **llm_params,
         ):
             yield chunk
@@ -411,8 +396,8 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             if conv.model_config:
                 model_brief = ModelConfigBrief(
                     id=conv.model_config.id,
-                    name=conv.model_config.name,
-                    description=conv.model_config.description,
+                    config_name=conv.model_config.config_name,
+                    config_desc=conv.model_config.config_desc,
                 )
 
             results.append(

@@ -42,10 +42,10 @@ def parse_usage_from_chunk(chunk: dict) -> Dict[str, int] | None:
 class OpenAICompatibleLLM:
     """OpenAI 兼容 Chat Completions API 客户端（DeepSeek、硅基流动等）"""
 
-    def __init__(self, model: str = None):
-        self.model = model or PROJECT_CONFIG.DEFAULT_LLM_MODEL
-        self.api_key = PROJECT_CONFIG.LLM_API_KEY
-        self.base_url = PROJECT_CONFIG.LLM_BASE_URL
+    def __init__(self, model: str = None, api_key: str = None, base_url: str = None):
+        self.model = model or PROJECT_CONFIG.LLM_MODEL_NAME
+        self.api_key = api_key if api_key is not None else PROJECT_CONFIG.LLM_API_KEY
+        self.base_url = base_url if base_url is not None else PROJECT_CONFIG.LLM_BASE_URL
 
     def _get_headers(self) -> Dict[str, str]:
         return {

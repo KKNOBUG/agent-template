@@ -156,8 +156,8 @@ class ConversationBrief(BaseModel):
 
 class ModelConfigBrief(BaseModel):
     id: Optional[str] = Field(default=None, description="模型配置ID")
-    name: Optional[str] = Field(default=None, description="模型配置名称")
-    description: Optional[str] = Field(default=None, description="模型配置描述")
+    config_name: Optional[str] = Field(default=None, description="用户自定义配置名称")
+    config_desc: Optional[str] = Field(default=None, description="配置说明")
 
 
 class KnowledgeBaseBrief(BaseModel):

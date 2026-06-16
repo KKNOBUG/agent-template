@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 from applications.base.rag.chroma_store import chroma_store
 from applications.base.rag.embeddings import get_single_embedding, is_embedding_configured
 from applications.base.rag.llm import OpenAICompatibleLLM, format_messages
-from configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
+from configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT, GREETING_RESPONSE
 
 
 def is_irrelevant_question(question: str) -> bool:
@@ -31,26 +31,7 @@ def is_irrelevant_question(question: str) -> bool:
 
 def get_irrelevant_response() -> str:
     """生成无关问题的标准回复"""
-    return """您好！我是企业知识库智能助手 😊
-
-我专门为您解答与公司相关的各类问题，例如：
-
-📋 **制度政策**
-   - 公司的年假政策是什么？
-   - 员工享有哪些福利待遇？
-   - 请假流程是怎样的？
-
-💼 **工作流程**
-   - 如何申请办公用品？
-   - 报销流程是什么？
-   - 考勤制度有哪些规定？
-
-📚 **员工手册**
-   - 新员工入职需要准备什么？
-   - 公司的培训机会有哪些？
-   - 绩效考核标准是什么？
-
-请随时向我提问，我会根据公司的官方资料为您提供准确、详细的解答！"""
+    return GREETING_RESPONSE
 
 
 def _format_source_label(result: dict) -> str:
@@ -68,7 +49,7 @@ def _format_source_label(result: dict) -> str:
 
 def _filter_embedding_model_consistency(results: List[dict]) -> List[dict]:
     """过滤与当前 Embedding 模型不一致的检索结果"""
-    current_model = PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
+    current_model = PROJECT_CONFIG.EMBEDDING_MODEL_NAME
     filtered = []
     for item in results:
         stored_model = (item.get("embedding_model") or "").strip()
@@ -131,12 +112,7 @@ def _resolve_system_prompt(
 ) -> str:
     """解析系统提示词，支持自定义模板或全局默认模板"""
     if not has_context:
-        return """你是企业知识库智能助手。请用你的专业知识回答用户的问题。
-
-要求：
-1. 回答要准确、简洁、专业
-2. 如果涉及到企业制度、员工手册等内容，请说明这是基于通用知识的回答
-3. 建议用户查阅公司正式文件获取最准确的信息"""
+        return (system_prompt or "").strip() or GENERAL_SYSTEM_PROMPT
 
     prompt_template = (system_prompt or "").strip() or RAG_SYSTEM_PROMPT
     if "{context}" in prompt_template:
@@ -149,6 +125,8 @@ def rag_query(
         knowledge_base_ids: List[str],
         chat_history: List[Dict[str, str]] = None,
         model_name: str = "qwen-turbo",
+        api_key: str = None,
+        base_url: str = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
         top_p: float = 0.95,
@@ -201,7 +179,7 @@ def rag_query(
     )
 
     # 3. 调用LLM
-    llm = OpenAICompatibleLLM(model=model_name)
+    llm = OpenAICompatibleLLM(model=model_name, api_key=api_key, base_url=base_url)
     response = llm.chat(
         messages=messages,
         temperature=temperature,
@@ -217,6 +195,8 @@ async def rag_stream(
         knowledge_base_ids: List[str],
         chat_history: List[Dict[str, str]] = None,
         model_name: str = "qwen-turbo",
+        api_key: str = None,
+        base_url: str = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
         top_p: float = 0.95,
@@ -293,7 +273,7 @@ async def rag_stream(
     )
 
     # 4. 流式调用LLM
-    llm = OpenAICompatibleLLM(model=model_name)
+    llm = OpenAICompatibleLLM(model=model_name, api_key=api_key, base_url=base_url)
     async for chunk in llm.stream_chat(
             messages=messages,
             temperature=temperature,
