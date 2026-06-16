@@ -47,7 +47,7 @@
 │   ├── user/                       # 用户与认证
 │   ├── conversation/               # 对话与历史
 │   ├── knowledge_base/             # 知识库与文档
-│   ├── model_config/               # LLM 模型参数配置
+│   ├── model_config/               # LLM 模型配置（连接/参数/厂商/深度思考）
 │   ├── agent/                      # Agent 技能与 MCP 服务配置
 │   ├── task_center/                # 任务中心（Celery 定时任务调度）
 │   └── example/                    # 示例模块（商品分类/模型）
@@ -131,15 +131,15 @@ aerich upgrade
 
 ```bash
 python services/scripts/init_admin.py
-python services/scripts/init_model_configs.py
+# 模型配置在「模型管理」页面自行创建，不再自动 seed 到数据库
 ```
 
 默认管理员账号：
 
-| 字段 | 值 |
-|------|-----|
-| 用户名 | admin |
-| 密码 | admin |
+| 字段 | 值      |
+|------|--------|
+| 用户名 | admin  |
+| 密码 | 123456 |
 
 ### 5. 启动后端
 
@@ -179,12 +179,12 @@ celery -A celery_scheduler.celery_worker beat -l INFO
 | `AUTH_SECRET_KEY` | JWT 密钥（≥64 位） | — |
 | `AUTH_JWT_ALGORITHM` | JWT 算法 | `HS256` |
 | `AUTH_JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Token 过期时间（分钟） | `10080`（7天） |
-| `LLM_API_KEY` | 大模型 Key（兼容 `DASHSCOPE_API_KEY`） | — |
+| `LLM_API_KEY` | 大模型 Key（ModelConfig 为空时兜底） | — |
 | `LLM_BASE_URL` | 大模型 API 地址 | `https://api.deepseek.com/v1` |
-| `DEFAULT_LLM_MODEL` | 默认模型名 | `deepseek-chat` |
+| `LLM_MODEL_NAME` | 默认模型名 | `deepseek-chat` |
 | `EMBEDDING_API_KEY` | 向量模型 Key（兼容 `SILICONFLOW_API_KEY`） | — |
 | `EMBEDDING_BASE_URL` | 向量 API 地址 | `https://api.siliconflow.cn/v1` |
-| `DEFAULT_EMBEDDING_MODEL` | 默认 Embedding 模型 | `BAAI/bge-large-zh-v1.5` |
+| `EMBEDDING_MODEL_NAME` | 默认 Embedding 模型 | `BAAI/bge-large-zh-v1.5` |
 | `CHROMA_COLLECTION` | Chroma 集合名 | `knowledge_base` |
 | `REDIS_HOST` | Redis 主机 | `localhost` |
 | `REDIS_PORT` | Redis 端口 | `6379` |
@@ -217,7 +217,7 @@ from configure import PROJECT_CONFIG
 ```json
 {
   "username": "admin",
-  "password": "admin"
+  "password": "123456"
 }
 ```
 
@@ -274,17 +274,22 @@ from configure import PROJECT_CONFIG
   "question": "公司的年假政策是什么？",
   "conversation_id": "可选，续聊时传入",
   "knowledge_base_ids": ["知识库ID"],
-  "model_config_id": "可选"
+  "model_config_id": "可选，传 null 则不绑定配置",
+  "enable_thinking": false
 }
 ```
+
+当 `model_config_id=null` 时，前端不展示模型下拉选择器，聊天链路纯走 `.env` 兜底；深度思考开关仅当选中配置的 `model_thinking=true` 时显示。
 
 **SSE 事件类型**：
 
 | event | 含义 |
 |-------|------|
 | `meta` | 返回 `conversation_id` |
+| `reasoning` | 深度思考推理内容（仅 `model_thinking=true` 的配置且用户开启时触发） |
 | `token` | 流式文本片段 |
-| `done` | 回答完成 |
+| `usage` | Token 用量（prompt_tokens / completion_tokens / reasoning_tokens） |
+| `done` | 回答完成（含完整 `content`、`usage`、`process_trace`） |
 | `error` | 错误信息 |
 
 ### 知识库 `/api/knowledge-bases`
@@ -304,19 +309,36 @@ from configure import PROJECT_CONFIG
 | PUT | `/api/knowledge-bases/{kb_id}/chunks/{chunk_id}` | 更新分块 | 是 |
 | DELETE | `/api/knowledge-bases/{kb_id}/chunks/{chunk_id}` | 删除分块 | 是 |
 
-### 模型配置 `/api/model-configs`
+### 模型配置 `/model-configs`
 
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
-| GET | `/api/model-configs/` | 配置列表 | 是 |
-| POST | `/api/model-configs/` | 创建配置 | 是 |
-| GET | `/api/model-configs/default` | 获取默认配置 | 是 |
-| GET | `/api/model-configs/{config_id}` | 配置详情 | 是 |
-| PUT | `/api/model-configs/{config_id}` | 更新配置 | 是 |
-| DELETE | `/api/model-configs/{config_id}` | 删除配置 | 是 |
-| POST | `/api/model-configs/{config_id}/default` | 设为默认 | 是 |
+| GET | `/model-configs/` | 配置列表 | 是 |
+| POST | `/model-configs/` | 创建配置 | 是 |
+| GET | `/model-configs/default` | 获取当前用户默认配置 | 是 |
+| GET | `/model-configs/{config_id}` | 配置详情 | 是 |
+| PUT | `/model-configs/{config_id}` | 更新配置 | 是 |
+| DELETE | `/model-configs/{config_id}` | 删除配置 | 是 |
+| POST | `/model-configs/{config_id}/default` | 设为默认 | 是 |
 
-列表仅返回**当前登录用户**自己创建的配置。聊天时优先使用用户指定/默认配置；若用户尚无配置，后端自动降级使用管理员（`admin`）的默认配置。
+列表仅返回**当前登录用户**自己创建的配置。ModelConfig 核心字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `config_name` | string | 用户自定义配置名称 |
+| `config_desc` | string? | 配置说明 |
+| `model_provider` | string | 厂商分类（`custom`/`deepseek`/`openai`/`siliconflow` 等） |
+| `model_thinking` | bool | 是否展示深度思考开关 |
+| `llm_model_name` | string | API 请求体中的 `model` 参数 |
+| `llm_base_url` | string? | 模型接入地址；空 → `.env` 的 `LLM_BASE_URL` |
+| `llm_api_key` | string? | 创建/更新时传入，**加密入库**；查询时脱敏返回（`llm_api_key_masked`）；空 → `.env` 的 `LLM_API_KEY`；更新时空值/含 `***` 不覆盖已有 Key |
+
+聊天时模型解析优先级：
+1. 请求中的 `model_config_id`（须属于当前登录用户）
+2. 当前用户的 `is_default` 配置（无 default 标记则取最早一条）
+3. 以上均无 → `model_config=None`，走 `.env`（`LLM_MODEL_NAME` / `LLM_BASE_URL` / `LLM_API_KEY`）+ 代码默认参数
+
+> 不再降级读取 admin 的配置。
 
 ### Agent 技能 `/api/agent`
 
@@ -493,7 +515,7 @@ Celery Beat 每 60 秒扫描一次启用且配置了调度的任务：
 # 初始化管理员
 python services/scripts/init_admin.py
 
-# 初始化 DeepSeek 模型配置
+# 手动创建模型配置示例（应用启动时不再自动 seed，需在「模型管理」页面创建）
 python services/scripts/init_model_configs.py
 
 # 离线构建向量库（读取 output/data/*.pdf）
@@ -583,4 +605,4 @@ DATABASE_NAME=rag_system
 
 ---
 
-*文档最后更新：2026-06-13*
+*文档最后更新：2026-06-15*
