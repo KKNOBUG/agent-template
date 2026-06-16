@@ -16,7 +16,7 @@
     python3 convert_to_md.py ./documents/ -r -o ./markdown_output/
 
 说明：
-    - 脚本使用 ./cache/ 作为所有离线模型的根目录。
+    - 脚本使用 ./docling_offline/ 作为所有离线模型的根目录。
     - PDF 的 OCR 使用 RapidOCR，加载本地 ONNX 模型。
     - 建议 Python 3.10+。
 """
@@ -37,7 +37,7 @@ os.environ["HF_DATASETS_OFFLINE"] = "1"
 # 路径相对于本脚本解析（无论从哪里运行都能正确定位）
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).resolve().parent
-CACHE_DIR = SCRIPT_DIR / "cache"
+CACHE_DIR = SCRIPT_DIR / "docling_offline"
 MODELS_DIR = CACHE_DIR / "docling" / "models"
 RAPID_OCR_DIR = CACHE_DIR / "rapidocr"
 HF_CACHE_DIR = CACHE_DIR / "huggingface"

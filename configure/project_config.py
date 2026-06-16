@@ -47,11 +47,20 @@ class ProjectConfig(BaseSettings):
 
     # 调试配置
     SERVER_APP: str = "backend_main:app"
-    SERVER_HOST: str = ShellUtils.acquire_localhost()
+    # SERVER_HOST: str = ShellUtils.acquire_localhost()
+    SERVER_HOST: str = "0.0.0.0"
     SERVER_SYSTEM: str = platform.system()
     SERVER_PORT: int = 8519
     SERVER_DEBUG: bool = SERVER_SYSTEM != "Linux"  # Windows | Linux | Darwin
     SERVER_DELAY: int = 5
+    SERVER_RELOAD_EXCLUDES: List[str] = [
+        "*/workspace/*",
+        "*/output/*",
+        "*/docling_offline/*",
+        "*/.venv/*",
+        "*/__pycache__/*",
+    ]
+
 
     # 安全认证配置（必须在.env文件或环境变量中配置）
     AUTH_SECRET_KEY: str = Field(default="", min_length=64, description="JWT密钥，建议: openssl rand -hex 32")
@@ -88,6 +97,9 @@ class ProjectConfig(BaseSettings):
     STATIC_IMG_DIR: str = os.path.abspath(os.path.join(STATIC_DIR, "image"))
     MIGRATION_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "migrations"))
     CHROMA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "chroma_db"))
+    DOCLING_OFFLINE_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "docling_offline"))
+    WORKSPACE_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "workspace"))
+
 
 
     # RAG / LLM / Embedding
@@ -114,6 +126,13 @@ class ProjectConfig(BaseSettings):
         default=5,
         description="向量检索条数兜底；聊天以 ModelConfig.top_k(1-20) 为准",
     )
+
+    # 测试用例生成配置
+    TEST_CASE_MODEL_POOL: str = Field(
+        default="sonnet;haiku;opus",
+        description="Claude 模型池（短别名或具体模型名，用分号分隔，按顺序轮询）",
+    )
+    TEST_CASE_MODEL_TIMEOUT: int = Field(default=1200, description="单个模型调用超时秒数")
 
     # # 允许访问的源（域名）列表
     CORS_ORIGINS: List[str] = [
