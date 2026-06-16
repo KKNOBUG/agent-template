@@ -24,7 +24,7 @@ from sse_starlette.sse import EventSourceResponse
 from applications.zhoushengjie.services.stream_recommend_generator import (
     stream_recommend_generate,
 )
-from common.claude_stream_service import THINKING_EVENT_WHITELIST
+from services.claude_stream_service import THINKING_EVENT_WHITELIST
 from common.file_converter import convert_file_to_md
 from configure import LOGGER, PROJECT_CONFIG
 from core.responses import FailureResponse

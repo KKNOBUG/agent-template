@@ -17,7 +17,7 @@ import uuid
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from sse_starlette.sse import EventSourceResponse
 
-from common.claude_stream_service import (
+from services.claude_stream_service import (
     build_stream_options,
     stream_agent_query,
     THINKING_EVENT_WHITELIST,

@@ -11,7 +11,7 @@
 import os
 from typing import AsyncIterator
 
-from common.claude_stream_service import build_stream_options, stream_agent_query
+from services.claude_stream_service import build_stream_options, stream_agent_query
 from configure import PROJECT_CONFIG
 
 
