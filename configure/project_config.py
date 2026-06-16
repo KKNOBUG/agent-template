@@ -237,7 +237,8 @@ class ProjectConfig(BaseSettings):
     ]
 
     # 数据库配置（仅支持 MySQL）
-    DATABASE_AUTO_MIGRATION: bool = True
+    # DATABASE_AUTO_MIGRATION字段默认关闭，不做数据库模型迁移，如果需要请先检查或询问当前数据库模型是否存在更新，避免迁移记录错乱
+    DATABASE_AUTO_MIGRATION: bool = False
     DATABASE_CONNECTIONS: Dict[str, Any] = {}
     DATABASE_URL: str = Field(default="", description="数据库地址")
     DATABASE_HOST: str = Field(default="", description="数据库主机")
