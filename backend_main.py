@@ -81,9 +81,9 @@ if __name__ == '__main__':
         log_level=None,
     )
 
-    # ========== 启动命令（在项目根目录 Krun_副本_new 下执行，且保证 PYTHONPATH 含 backend 所在目录）==========
+    # ========== 启动命令（在项目根目录下执行，且保证 PYTHONPATH 含所在目录）==========
     # Worker（消费 default + autotest_queue）：
     #   Windows（单线程）：celery -A celery_scheduler.celery_worker worker -Q default,autotest_queue --pool=solo -l INFO
     #   Linux：          celery -A celery_scheduler.celery_worker worker -Q default,autotest_queue -c 4 -l INFO
-    # Beat（定时下发 scan_and_dispatch_autotest_tasks，必须单独起一个进程）：
+    # Beat（定时下发 scan_and_dispatch_tasks，必须单独起一个进程）：
     #   celery -A celery_scheduler.celery_worker beat -l INFO
