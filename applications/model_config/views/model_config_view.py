@@ -10,18 +10,18 @@ import traceback
 
 from fastapi import APIRouter, Depends
 
-from backend.applications.model_config.dependencies import get_model_config_crud
-from backend.applications.model_config.schemas.model_config_schema import (
+from applications.model_config.dependencies import get_model_config_crud
+from applications.model_config.schemas.model_config_schema import (
     ModelConfigCreate,
     ModelConfigOut,
     ModelConfigUpdate,
 )
-from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
-from backend.applications.user.models.user_model import User
-from backend.configure import LOGGER
-from backend.core.exceptions import NotFoundException
-from backend.core.responses import SuccessResponse, FailureResponse, NotFoundResponse
-from backend.services import DependAuth
+from applications.model_config.services.model_config_crud import ModelConfigCrud
+from applications.user.models.user_model import User
+from configure import LOGGER
+from core.exceptions import NotFoundException
+from core.responses import SuccessResponse, FailureResponse, NotFoundResponse
+from services import DependAuth
 
 model_config = APIRouter()
 

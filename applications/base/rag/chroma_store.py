@@ -7,7 +7,7 @@ from typing import List
 import chromadb
 from chromadb.config import Settings
 
-from configure import PROJECT_CONFIG
+from configure import PROJECT_CONFIG, LOGGER
 
 
 class ChromaStore:
@@ -31,7 +31,7 @@ class ChromaStore:
                 name=PROJECT_CONFIG.CHROMA_COLLECTION,
                 metadata={"hnsw:space": "cosine"},
             )
-            print(f"[Chroma] 本地向量库: {PROJECT_CONFIG.chroma_path}")
+            LOGGER.info(f"[Chroma] 本地向量库: {PROJECT_CONFIG.chroma_path}")
 
     def upsert_chunks(self, kb_id: str, chunks: List[dict]) -> List[str]:
         """批量写入向量，返回 Chroma 文档 ID 列表"""
@@ -123,25 +123,25 @@ class ChromaStore:
         try:
             self._collection.delete(where={"kb_id": kb_id})
         except Exception as e:
-            print(f"[Chroma] 删除知识库向量失败: {e}")
+            LOGGER.error(f"[Chroma] 删除知识库向量失败: {e}")
 
     def delete_by_doc(self, doc_id: str) -> None:
         try:
             self._collection.delete(where={"doc_id": doc_id})
         except Exception as e:
-            print(f"[Chroma] 删除文档向量失败: {e}")
+            LOGGER.error(f"[Chroma] 删除文档向量失败: {e}")
 
     def delete_by_chunk(self, chunk_id: str) -> None:
         try:
             self._collection.delete(where={"chunk_id": chunk_id})
         except Exception as e:
-            print(f"[Chroma] 删除分块向量失败: {e}")
+            LOGGER.error(f"[Chroma] 删除分块向量失败: {e}")
 
     def delete_by_vector_id(self, vector_id: str) -> None:
         try:
             self._collection.delete(ids=[vector_id])
         except Exception as e:
-            print(f"[Chroma] 删除向量失败: {e}")
+            LOGGER.error(f"[Chroma] 删除向量失败: {e}")
 
 
 chroma_store = ChromaStore()

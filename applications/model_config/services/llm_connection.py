@@ -3,9 +3,9 @@
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from backend.applications.model_config.models.model_config_model import ModelConfig
-from backend.applications.model_config.services.secret_utils import decrypt_api_key
-from backend.configure import PROJECT_CONFIG
+from applications.model_config.models.model_config_model import ModelConfig
+from applications.model_config.services.secret_utils import decrypt_api_key
+from configure import PROJECT_CONFIG
 
 
 @dataclass
