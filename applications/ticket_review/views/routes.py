@@ -16,11 +16,11 @@ from fastapi.responses import FileResponse, StreamingResponse
 from applications.ticket_review.models.push_task import PushTaskRecord
 from applications.ticket_review.models.review_result import ReviewResultRecord
 from applications.ticket_review.schemas.push_ticket import PushTicketAck, PushTicketAckData, PushTicketRequest
-from applications.ticket_review.schemas.response import ApiResponse
+from core.responses import BaseResponse, FailureResponse, SuccessResponse
 from applications.ticket_review.services.db2_pool import get_db2_connection
 from applications.ticket_review.services.excel_skill_json_formatter import ExcelSkillJsonFormatter
 from applications.ticket_review.services.push_task_events import push_task_events
-from applications.ticket_review.config import settings
+from configure import PROJECT_CONFIG
 from applications.ticket_review.utils.ticket_review_xlsx_writer import append_review_to_source_xlsx, ticket_review_to_xlsx
 
 router = APIRouter(tags=["环境工单预审"])
@@ -131,7 +131,7 @@ async def push_task_event_stream() -> StreamingResponse:
             while True:
                 try:
                     message = await asyncio.wait_for(
-                        queue.get(), timeout=settings.push_task_sse_heartbeat_seconds
+                        queue.get(), timeout=PROJECT_CONFIG.TICKET_PUSH_TASK_SSE_HEARTBEAT_SECONDS
                     )
                     yield _sse(message["event"], message["data"])
                 except asyncio.TimeoutError:
@@ -148,19 +148,19 @@ async def push_task_event_stream() -> StreamingResponse:
     )
 
 
-@router.get("/pushTasks", response_model=ApiResponse)
+@router.get("/pushTasks")
 async def list_push_tasks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-) -> ApiResponse:
+) -> BaseResponse:
     try:
         total = await PushTaskRecord.count()
         records = await PushTaskRecord.list_page(limit, (page - 1) * limit)
     except Exception as exc:
         logger.exception("Failed to list push tasks: %s", exc)
-        return ApiResponse.error(f"查询推送任务失败: {exc}")
-    return ApiResponse.success(
-        {
+        return FailureResponse(message=f"查询推送任务失败: {exc}")
+    return SuccessResponse(
+        data={
             "total": total,
             "page": page,
             "limit": limit,
@@ -169,31 +169,31 @@ async def list_push_tasks(
     )
 
 
-@router.get("/pushTasks/{request_id}", response_model=ApiResponse)
-async def get_push_task(request_id: str) -> ApiResponse:
+@router.get("/pushTasks/{request_id}")
+async def get_push_task(request_id: str) -> BaseResponse:
     try:
         record = await PushTaskRecord.get_by_request_id(request_id)
     except Exception as exc:
         logger.exception("Failed to load push task %s: %s", request_id, exc)
-        return ApiResponse.error(f"查询推送任务失败: {exc}")
+        return FailureResponse(message=f"查询推送任务失败: {exc}")
     if record is None:
-        return ApiResponse.error("推送任务不存在")
-    return ApiResponse.success(record.summary(include_payload=True))
+        return FailureResponse(message="推送任务不存在")
+    return SuccessResponse(data=record.summary(include_payload=True))
 
 
-@router.get("/pushTasks/{request_id}/results", response_model=ApiResponse)
+@router.get("/pushTasks/{request_id}/results")
 async def get_push_task_results(
     request_id: str,
     page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=500),
-) -> ApiResponse:
+) -> BaseResponse:
     try:
         total = await _count_results(request_id)
         results = await _list_results(request_id, limit, (page - 1) * limit)
     except Exception as exc:
         logger.exception("Failed to load push task results %s: %s", request_id, exc)
-        return ApiResponse.error(f"查询工单明细失败: {exc}")
-    return ApiResponse.success({
+        return FailureResponse(message=f"查询工单明细失败: {exc}")
+    return SuccessResponse(data={
         "total": total,
         "page": page,
         "limit": limit,
@@ -271,15 +271,15 @@ async def _list_results(
 @router.post("/formatExcelJson", response_model=None)
 async def format_excel_json(file: UploadFile = File(...)):
     if not file.filename:
-        return ApiResponse.error("请上传 Excel 文件")
+        return FailureResponse(message="请上传 Excel 文件")
 
     safe_filename = os.path.basename(file.filename)
     if not safe_filename.lower().endswith((".xlsx", ".xlsm")):
-        return ApiResponse.error(f"文件《{safe_filename}》不是 .xlsx/.xlsm 格式")
+        return FailureResponse(message=f"文件《{safe_filename}》不是 .xlsx/.xlsm 格式")
 
     excel_bytes = await file.read()
     if not excel_bytes:
-        return ApiResponse.error(f"文件《{safe_filename}》为空")
+        return FailureResponse(message=f"文件《{safe_filename}》为空")
 
     async def event_stream():
         record: ReviewResultRecord | None = None
@@ -337,29 +337,29 @@ async def format_excel_json(file: UploadFile = File(...)):
             "Connection": "keep-alive",
         },
     )
-@router.get("/reviewResults/latest", response_model=ApiResponse)
-async def get_latest_review_result() -> ApiResponse:
+@router.get("/reviewResults/latest")
+async def get_latest_review_result() -> BaseResponse:
     try:
         record = await ReviewResultRecord.get_latest()
     except Exception as exc:
         logger.exception("查询最新预审结果失败: %s", exc)
-        return ApiResponse.error(f"查询最新预审结果失败: {exc}")
-    return ApiResponse.success(_result_detail(record) if record else None)
+        return FailureResponse(message=f"查询最新预审结果失败: {exc}")
+    return SuccessResponse(data=_result_detail(record) if record else None)
 
 
-@router.get("/reviewResults", response_model=ApiResponse)
+@router.get("/reviewResults")
 async def list_review_results(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-) -> ApiResponse:
+) -> BaseResponse:
     try:
         total = await ReviewResultRecord.count()
         records = await ReviewResultRecord.list_page(limit=limit, offset=(page - 1) * limit)
     except Exception as exc:
         logger.exception("查询预审历史失败: %s", exc)
-        return ApiResponse.error(f"查询预审历史失败: {exc}")
+        return FailureResponse(message=f"查询预审历史失败: {exc}")
 
-    return ApiResponse.success({
+    return SuccessResponse(data={
         "total": total,
         "page": page,
         "limit": limit,
@@ -376,23 +376,23 @@ async def list_review_results(
     })
 
 
-@router.get("/reviewResults/{result_id}", response_model=ApiResponse)
-async def get_review_result(result_id: int) -> ApiResponse:
+@router.get("/reviewResults/{result_id}")
+async def get_review_result(result_id: int) -> BaseResponse:
     try:
         record = await ReviewResultRecord.get_by_id(result_id)
     except Exception as exc:
         logger.exception("查询预审结果失败: %s", exc)
-        return ApiResponse.error(f"查询预审结果失败: {exc}")
+        return FailureResponse(message=f"查询预审结果失败: {exc}")
     if not record:
-        return ApiResponse.error("预审结果不存在")
-    return ApiResponse.success(_result_detail(record))
+        return FailureResponse(message="预审结果不存在")
+    return SuccessResponse(data=_result_detail(record))
 
 
 @router.get("/reviewResults/{result_id}/download", response_model=None)
 async def download_review_result(result_id: int, background_tasks: BackgroundTasks):
     record = await ReviewResultRecord.get_with_file_by_id(result_id)
     if not record:
-        return ApiResponse.error("预审结果不存在").to_json_response()
+        return FailureResponse(message="预审结果不存在")
 
     original_suffix = ".xlsm" if record.source_file.lower().endswith(".xlsm") else ".xlsx"
     fd, tmp_path = tempfile.mkstemp(suffix=original_suffix, prefix="ticket_review_history_")
@@ -421,7 +421,7 @@ async def download_review_result(result_id: int, background_tasks: BackgroundTas
         logger.exception("历史预审结果导出失败: %s", exc)
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
-        return ApiResponse.error(f"历史预审结果导出失败: {exc}").to_json_response()
+        return FailureResponse(message=f"历史预审结果导出失败: {exc}")
 
 
 @router.post("/exportReviewExcel", response_model=None)
@@ -431,9 +431,9 @@ async def export_review_excel(background_tasks: BackgroundTasks, body: dict) -> 
         try:
             review_data = json.loads(review_data)
         except json.JSONDecodeError as exc:
-            return ApiResponse.error(f"json 字段不是合法 JSON: {exc}").to_json_response()
+            return FailureResponse(message=f"json 字段不是合法 JSON: {exc}")
     if not isinstance(review_data, dict) or "tickets" not in review_data:
-        return ApiResponse.error("json 内容缺少 tickets 字段").to_json_response()
+        return FailureResponse(message="json 内容缺少 tickets 字段")
 
     fd, tmp_path = tempfile.mkstemp(suffix=".xlsx", prefix="ticket_review_")
     os.close(fd)
@@ -451,4 +451,4 @@ async def export_review_excel(background_tasks: BackgroundTasks, body: dict) -> 
         logger.exception("预审结果导出 Excel 失败: %s", exc)
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
-        return ApiResponse.error(f"导出 Excel 失败: {exc}").to_json_response()
+        return FailureResponse(message=f"导出 Excel 失败: {exc}")

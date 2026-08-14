@@ -21,9 +21,9 @@ from sqlalchemy import case, delete, func, literal, select, text, update
 from sqlalchemy.exc import IntegrityError
 
 from applications.code_server_ide.dependencies import CurrentUser
-from applications.code_server_ide.config import settings
 from applications.code_server_ide.database import get_db_session
 from applications.code_server_ide.models.ide import IdePermissionConfig, IdeProjectRecord, IdeSessionRecord
+from configure import PROJECT_CONFIG
 
 logger = logging.getLogger(__name__)
 CLAUDE_ENGINEERING_PREFIX = "/claudeEngineering"
@@ -69,11 +69,11 @@ class WebSocketProxyTarget:
 
 class IdeService:
     def __init__(self) -> None:
-        self.image = settings.ide_image
-        self.network = settings.ide_docker_network
-        self.container_prefix = settings.ide_container_prefix
-        self.uid = settings.ide_uid
-        self.sessions_root = Path(settings.ide_sessions_root).expanduser()
+        self.image = PROJECT_CONFIG.IDE_IMAGE
+        self.network = PROJECT_CONFIG.IDE_DOCKER_NETWORK
+        self.container_prefix = PROJECT_CONFIG.IDE_CONTAINER_PREFIX
+        self.uid = PROJECT_CONFIG.IDE_UID
+        self.sessions_root = Path(PROJECT_CONFIG.IDE_SESSIONS_ROOT).expanduser()
         self.compose_file = Path(__file__).resolve().parents[1] / "resources" / "docker-compose.yml"
         self._reclaimer_task: asyncio.Task[None] | None = None
 
@@ -627,8 +627,8 @@ class IdeService:
             pass
         return IdePermissionConfig(
             id=1,
-            allow_view_other_users_projects=settings.allow_view_other_users_projects,
-            allow_cross_user_edit_in_system=settings.allow_cross_user_edit_in_system,
+            allow_view_other_users_projects=PROJECT_CONFIG.IDE_ALLOW_VIEW_OTHER_USERS_PROJECTS,
+            allow_cross_user_edit_in_system=PROJECT_CONFIG.IDE_ALLOW_CROSS_USER_EDIT_IN_SYSTEM,
         )
 
     def prepare_dirs(self, record: IdeSessionRecord) -> None:
@@ -713,20 +713,20 @@ class IdeService:
             "PROJECT_ID": record.project_id,
             "SYSTEM_ID": record.system_id,
             "IDE_HOST_PORT": str(record.host_port),
-            "IDE_CODE_SERVER_AUTH": settings.ide_code_server_auth,
+            "IDE_CODE_SERVER_AUTH": PROJECT_CONFIG.IDE_CODE_SERVER_AUTH,
             "WORKSPACE_DIR": str(workspace_dir),
             "WORKSPACE_MOUNT_MODE": "rw" if record.workspace_writable else "ro",
             "CLAUDE_DIR": str(self.claude_dir_for_record(record)),
             "CLAUDE_MOUNT_MODE": "rw",
             "CONFIG_DIR": str(runtime_dir / ".config"),
             "LOCAL_DIR": str(runtime_dir / ".local"),
-            "IDE_MEMORY_LIMIT": settings.ide_memory_limit,
-            "IDE_MEMORY_SWAP_LIMIT": settings.ide_memory_swap_limit,
-            "IDE_CPU_LIMIT": settings.ide_cpu_limit,
-            "IDE_PIDS_LIMIT": settings.ide_pids_limit,
-            "COCO_NPM_REGISTRY": settings.coco_npm_registry,
-            "COCO_PIP_INDEX_URL": settings.coco_pip_index_url,
-            "COCO_PIP_TRUSTED_HOST": settings.coco_pip_trusted_host,
+            "IDE_MEMORY_LIMIT": PROJECT_CONFIG.IDE_MEMORY_LIMIT,
+            "IDE_MEMORY_SWAP_LIMIT": PROJECT_CONFIG.IDE_MEMORY_SWAP_LIMIT,
+            "IDE_CPU_LIMIT": PROJECT_CONFIG.IDE_CPU_LIMIT,
+            "IDE_PIDS_LIMIT": PROJECT_CONFIG.IDE_PIDS_LIMIT,
+            "COCO_NPM_REGISTRY": PROJECT_CONFIG.COCO_NPM_REGISTRY,
+            "COCO_PIP_INDEX_URL": PROJECT_CONFIG.COCO_PIP_INDEX_URL,
+            "COCO_PIP_TRUSTED_HOST": PROJECT_CONFIG.COCO_PIP_TRUSTED_HOST,
         }
         (runtime_dir / "compose.env").write_text(
             "\n".join(f"{key}={value}" for key, value in env.items()) + "\n",
@@ -831,7 +831,7 @@ class IdeService:
             raise last_error
 
     async def enforce_container_capacity(self) -> None:
-        limit = int(settings.ide_max_running_containers)
+        limit = int(PROJECT_CONFIG.IDE_MAX_RUNNING_CONTAINERS)
         if limit <= 0:
             return
         running_count = await asyncio.to_thread(self.running_ide_container_count)
@@ -898,8 +898,8 @@ class IdeService:
 
     def stop_container(self, name: str) -> None:
         self.run_docker(
-            ["stop", "-t", str(settings.ide_docker_stop_timeout_seconds), name],
-            settings.ide_docker_stop_timeout_seconds + 15,
+            ["stop", "-t", str(PROJECT_CONFIG.IDE_DOCKER_STOP_TIMEOUT_SECONDS), name],
+            PROJECT_CONFIG.IDE_DOCKER_STOP_TIMEOUT_SECONDS + 15,
         )
 
     def remove_container(self, name: str) -> bool:
@@ -1043,8 +1043,8 @@ class IdeService:
         return os.path.normcase(os.path.abspath(left)) == os.path.normcase(os.path.abspath(right))
 
     async def allocate_host_port(self, exclude_session_id: str | None = None) -> int:
-        base = int(settings.ide_base_host_port)
-        span = max(1, int(settings.ide_host_port_range))
+        base = int(PROJECT_CONFIG.IDE_BASE_HOST_PORT)
+        span = max(1, int(PROJECT_CONFIG.IDE_HOST_PORT_RANGE))
         end = base + span
         async with get_db_session() as db:
             stmt = select(IdeSessionRecord.host_port).where(IdeSessionRecord.host_port.is_not(None))
@@ -1165,7 +1165,7 @@ class IdeService:
 
     async def reclaim_idle_sessions(self) -> None:
         now = datetime.now()
-        cutoff = now - timedelta(minutes=settings.ide_idle_stop_minutes)
+        cutoff = now - timedelta(minutes=PROJECT_CONFIG.IDE_IDLE_STOP_MINUTES)
         async with get_db_session() as db:
             result = await db.execute(
                 select(IdeSessionRecord).where(IdeSessionRecord.status.in_(["RUNNING", "IDLE_PENDING", "STOPPING"])),
@@ -1175,7 +1175,7 @@ class IdeService:
             if not self.owns_session_record(record):
                 continue
             if record.status == "STOPPING":
-                stopping_cutoff = now - timedelta(minutes=settings.ide_stopping_timeout_minutes)
+                stopping_cutoff = now - timedelta(minutes=PROJECT_CONFIG.IDE_STOPPING_TIMEOUT_MINUTES)
                 if record.updated_at and record.updated_at > stopping_cutoff:
                     continue
                 await self.mark_idle_pending(
@@ -1229,7 +1229,7 @@ class IdeService:
                 )
                 continue
             pending_started_at = record.idle_pending_at
-            pending_cutoff = now - timedelta(minutes=settings.ide_idle_pending_minutes)
+            pending_cutoff = now - timedelta(minutes=PROJECT_CONFIG.IDE_IDLE_PENDING_MINUTES)
             if pending_started_at > pending_cutoff:
                 continue
             if not await self.claim_idle_session_stop(record.session_id, cutoff, pending_cutoff):
@@ -1252,10 +1252,10 @@ class IdeService:
                 logger.exception("Failed to stop idle IDE session %s: %s", record.session_id, exc)
 
     async def remove_inactive_stopped_containers(self) -> None:
-        if settings.ide_stopped_container_rm_minutes < 0:
+        if PROJECT_CONFIG.IDE_STOPPED_CONTAINER_RM_MINUTES < 0:
             return
         now = datetime.now()
-        cutoff = now - timedelta(minutes=settings.ide_stopped_container_rm_minutes)
+        cutoff = now - timedelta(minutes=PROJECT_CONFIG.IDE_STOPPED_CONTAINER_RM_MINUTES)
         async with get_db_session() as db:
             result = await db.execute(
                 select(IdeSessionRecord).where(IdeSessionRecord.status.in_(["STOPPED", "FAILED"])),
@@ -1354,7 +1354,7 @@ class IdeService:
         if not self.container_running(record.container_name):
             return None
         cpu = self.container_cpu_percent(record.container_name)
-        if cpu is not None and cpu >= settings.ide_busy_cpu_threshold:
+        if cpu is not None and cpu >= PROJECT_CONFIG.IDE_BUSY_CPU_THRESHOLD:
             return "cpu_active"
         return self.filesystem_busy_reason(record)
 
@@ -1363,7 +1363,7 @@ class IdeService:
 
     def filesystem_busy_reason(self, record: IdeSessionRecord) -> str | None:
         claude_root = self.claude_dir_for_record(record)
-        busy_window = datetime.now() - timedelta(minutes=settings.ide_busy_file_window_minutes)
+        busy_window = datetime.now() - timedelta(minutes=PROJECT_CONFIG.IDE_BUSY_FILE_WINDOW_MINUTES)
         latest_claude_write = self.latest_write_time([claude_root])
         if latest_claude_write and latest_claude_write > busy_window:
             return "recent_claude_write"
@@ -1426,7 +1426,7 @@ class IdeService:
                 except OSError:
                     continue
                 candidates.append((mtime, path))
-        max_busy_cutoff = datetime.now() - timedelta(hours=settings.ide_busy_max_hours)
+        max_busy_cutoff = datetime.now() - timedelta(hours=PROJECT_CONFIG.IDE_BUSY_MAX_HOURS)
         for mtime, path in sorted(candidates, reverse=True)[:3]:
             last_event = self.last_jsonl_event(path)
             if last_event is None or self.is_claude_end_turn(last_event):

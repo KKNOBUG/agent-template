@@ -6,7 +6,7 @@ from fastapi import Depends, Header, HTTPException
 
 from applications.user.models.user_model import User
 from configure import PROJECT_CONFIG
-from services import CTX_USER_ID
+from services.ctx import AuthenticatedUserContext, CTX_CURRENT_USER, CTX_USER_ID
 
 
 class AuthControl:
@@ -28,6 +28,14 @@ class AuthControl:
                 raise HTTPException(status_code=401, detail="请求服务鉴权已过期, 请重新登录获取有效 Token 后进行访问")
 
             CTX_USER_ID.set(int(user_id))
+            CTX_CURRENT_USER.set(
+                AuthenticatedUserContext(
+                    user_id=int(user_id),
+                    username=user.username,
+                    is_superuser=bool(user.is_superuser),
+                    roles=("super_admin",) if user.is_superuser else (),
+                )
+            )
             return user
         except HTTPException:
             raise

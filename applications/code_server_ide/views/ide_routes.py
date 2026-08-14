@@ -3,13 +3,17 @@ from __future__ import annotations
 import asyncio
 import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 
-from applications.code_server_ide.dependencies import IdeAuthenticationError, get_current_user
-from applications.code_server_ide.schemas.response import ApiResponse
+from applications.code_server_ide.dependencies import (
+    IdeAuthenticationError,
+    get_current_user,
+    get_websocket_current_user,
+)
+from core.responses import BaseResponse, SuccessResponse
 from applications.code_server_ide.services.ide_service import (
     IdeCapacityExceeded,
     IdeError,
@@ -72,6 +76,15 @@ def proxy_authority_from_request(request: Request) -> str | None:
     return parsed.netloc or None
 
 
+def websocket_upstream_query(websocket: WebSocket) -> str:
+    """Do not forward the application authentication token to code-server."""
+    return urlencode(
+        (key, value)
+        for key, value in parse_qsl(websocket.url.query, keep_blank_values=True)
+        if key.lower() != "token"
+    )
+
+
 def rewrite_code_server_html(
     session_id: str,
     content: bytes,
@@ -105,12 +118,12 @@ def rewrite_code_server_html(
     return text.encode("utf-8")
 
 
-@router.get("/current-user", response_model=ApiResponse)
-async def get_ide_current_user(request: Request) -> ApiResponse:
+@router.get("/current-user")
+async def get_ide_current_user(request: Request) -> BaseResponse:
     try:
-        user = get_current_user(request)
-        return ApiResponse.success(
-            {
+        user = get_current_user()
+        return SuccessResponse(
+            data={
                 "user_id": user.user_id,
                 "username": user.username,
                 "is_super_admin": user.is_super_admin,
@@ -121,61 +134,61 @@ async def get_ide_current_user(request: Request) -> ApiResponse:
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
 
-@router.post("/sessions", response_model=ApiResponse)
-async def ensure_ide_session(request: Request, payload: dict[str, Any] | None = None) -> ApiResponse:
+@router.post("/sessions")
+async def ensure_ide_session(request: Request, payload: dict[str, Any] | None = None) -> BaseResponse:
     try:
-        data = await ide_service.ensure_session(get_current_user(request), payload or {})
-        return ApiResponse.success(data)
+        data = await ide_service.ensure_session(get_current_user(), payload or {})
+        return SuccessResponse(data=data)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
 
-@router.get("/projects", response_model=ApiResponse)
-async def list_projects(request: Request) -> ApiResponse:
+@router.get("/projects")
+async def list_projects(request: Request) -> BaseResponse:
     try:
-        data = await ide_service.list_projects(get_current_user(request))
-        return ApiResponse.success(data)
+        data = await ide_service.list_projects(get_current_user())
+        return SuccessResponse(data=data)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
 
-@router.post("/projects", response_model=ApiResponse)
-async def create_project(request: Request, payload: dict[str, Any]) -> ApiResponse:
+@router.post("/projects")
+async def create_project(request: Request, payload: dict[str, Any]) -> BaseResponse:
     try:
-        data = await ide_service.create_project(get_current_user(request), payload)
-        return ApiResponse.success(data)
+        data = await ide_service.create_project(get_current_user(), payload)
+        return SuccessResponse(data=data)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
 
-@router.delete("/projects/{project_id}", response_model=ApiResponse)
+@router.delete("/projects/{project_id}")
 async def delete_project(
     project_id: str,
     request: Request,
     delete_workspace: bool = Query(False),
-) -> ApiResponse:
+) -> BaseResponse:
     try:
         data = await ide_service.delete_project(
-            get_current_user(request),
+            get_current_user(),
             project_id,
             delete_workspace=delete_workspace,
         )
-        return ApiResponse.success(data)
+        return SuccessResponse(data=data)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
 
-@router.get("/sessions/{session_id}", response_model=ApiResponse)
-async def get_ide_session(session_id: str, request: Request) -> ApiResponse:
+@router.get("/sessions/{session_id}")
+async def get_ide_session(session_id: str, request: Request) -> BaseResponse:
     try:
-        data = await ide_service.session_payload(session_id, get_current_user(request))
-        return ApiResponse.success(data)
+        data = await ide_service.session_payload(session_id, get_current_user())
+        return SuccessResponse(data=data)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
 
-@router.post("/sessions/{session_id}/heartbeat", response_model=ApiResponse)
-async def heartbeat_ide_session(session_id: str, request: Request) -> ApiResponse:
+@router.post("/sessions/{session_id}/heartbeat")
+async def heartbeat_ide_session(session_id: str, request: Request) -> BaseResponse:
     try:
         payload = {}
         if request.headers.get("content-type", "").startswith("application/json"):
@@ -183,34 +196,34 @@ async def heartbeat_ide_session(session_id: str, request: Request) -> ApiRespons
                 payload = await request.json()
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail="Invalid heartbeat JSON") from exc
-        data = await ide_service.heartbeat(session_id, get_current_user(request), payload)
-        return ApiResponse.success(data)
+        data = await ide_service.heartbeat(session_id, get_current_user(), payload)
+        return SuccessResponse(data=data)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
 
-@router.post("/sessions/{session_id}/stop", response_model=ApiResponse)
-async def stop_ide_session(session_id: str, request: Request) -> ApiResponse:
+@router.post("/sessions/{session_id}/stop")
+async def stop_ide_session(session_id: str, request: Request) -> BaseResponse:
     try:
-        data = await ide_service.stop_session(session_id, get_current_user(request))
-        return ApiResponse.success(data)
+        data = await ide_service.stop_session(session_id, get_current_user())
+        return SuccessResponse(data=data)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
 
-@router.get("/admin/sessions", response_model=ApiResponse)
+@router.get("/admin/sessions")
 async def list_ide_sessions(
     request: Request,
     status: str | None = Query(None),
     user_id: str | None = Query(None),
     project_id: str | None = Query(None),
     system_id: str | None = Query(None),
-) -> ApiResponse:
+) -> BaseResponse:
     try:
         data = await ide_service.list_sessions(
-            get_current_user(request),
+            get_current_user(),
             {
                 "status": status,
                 "user_id": user_id,
@@ -218,7 +231,7 @@ async def list_ide_sessions(
                 "system_id": system_id,
             },
         )
-        return ApiResponse.success(data)
+        return SuccessResponse(data=data)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status_code_for_error(exc), detail=str(exc)) from exc
 
@@ -229,7 +242,7 @@ async def proxy_ide(session_id: str, path: str, request: Request) -> Response:
         body = await request.body()
         upstream = await ide_service.proxy_http(
             session_id=session_id,
-            user=get_current_user(request),
+            user=get_current_user(),
             path=path,
             method=request.method,
             headers=dict(request.headers),
@@ -276,8 +289,13 @@ async def proxy_ide_ws(session_id: str, path: str, websocket: WebSocket) -> None
     await websocket.accept()
     connected = False
     try:
-        user = get_current_user(websocket)
-        target = await ide_service.proxy_ws_connect(session_id, user, path, websocket.url.query)
+        user = await get_websocket_current_user(websocket)
+        target = await ide_service.proxy_ws_connect(
+            session_id,
+            user,
+            path,
+            websocket_upstream_query(websocket),
+        )
         connected = True
         async with websockets.connect(target.upstream_url, max_size=None) as upstream:
             async def client_to_upstream() -> None:

@@ -174,12 +174,14 @@ class ProjectConfig(BaseSettings):
     IDE_DATABASE_USER: str = ""
     IDE_DATABASE_PASSWORD: str = ""
     IDE_DATABASE_NAME: str = ""
+    IDE_DATABASE_URL: str = ""
     IDE_DATABASE_ECHO: bool = False
     IDE_IMAGE: str = "coco-code-server:amd64-20260730"
     IDE_DOCKER_NETWORK: str = "coco-ide-net"
     IDE_CONTAINER_PREFIX: str = "ide-code-server"
     IDE_SESSIONS_ROOT: str = "~/claude_engineering/ide-sessions"
     IDE_CODE_SERVER_AUTH: str = "none"
+    IDE_AUTH_COOKIE_NAME: str = "ide_access_token"
     IDE_UID: int = 1001
     IDE_BASE_HOST_PORT: int = 18081
     IDE_HOST_PORT_RANGE: int = 1000
@@ -200,10 +202,6 @@ class ProjectConfig(BaseSettings):
     IDE_BUSY_CPU_THRESHOLD: float = 2
     IDE_BUSY_MAX_HOURS: int = 6
     IDE_DATA_RETENTION_DAYS: int = 7
-    IDE_SUPER_ADMIN_USERS: str = ""
-    IDE_TRUST_USER_HEADERS: bool = False
-    IDE_TRUSTED_AUTH_PROXIES: str = ""
-    IDE_ALLOW_IP_IDENTITY: bool = False
     IDE_ALLOW_VIEW_OTHER_USERS_PROJECTS: bool = True
     IDE_ALLOW_CROSS_USER_EDIT_IN_SYSTEM: bool = False
 
@@ -368,6 +366,17 @@ class ProjectConfig(BaseSettings):
                 },
             }
         }
+
+        ide_db_user = quote_plus(self.IDE_DATABASE_USER)
+        ide_db_password = quote_plus(self.IDE_DATABASE_PASSWORD)
+        self.IDE_DATABASE_URL = (
+            f"mysql+aiomysql://{ide_db_user}:{ide_db_password}"
+            f"@{self.IDE_DATABASE_HOST}:{self.IDE_DATABASE_PORT}/"
+            f"{self.IDE_DATABASE_NAME}?charset=utf8mb4"
+        )
+        self.IDE_CODE_SERVER_AUTH = self.IDE_CODE_SERVER_AUTH.strip().lower() or "none"
+        if self.IDE_CODE_SERVER_AUTH != "none":
+            raise ValueError("Only IDE_CODE_SERVER_AUTH=none is supported")
 
         if self.REDIS_PASSWORD:
             self.REDIS_URL = self.build_redis_url(db=0)

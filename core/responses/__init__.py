@@ -22,6 +22,7 @@ from .http_response import (
 )
 
 __all__ = (
+    "BaseResponse",
     "SuccessResponse",
     "FailureResponse",
     "BadReqResponse",

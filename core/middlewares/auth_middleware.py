@@ -94,14 +94,13 @@ async def auth_middleware(request: Request, call_next):
         "* /reviewResults/*",
         "* /exportReviewExcel",
 
-        # Code Server IDE keeps its own trusted-header/IP identity adapter.
-        "* /claudeEngineering/ide/*",
     ]
 
     if _is_whitelisted(whitelist=whitelist, request_method=request_method, request_path=request_path):
         return await call_next(request)
 
-    token = request.headers.get("token")
+    header_token = request.headers.get("token")
+    token = header_token or request.cookies.get(PROJECT_CONFIG.IDE_AUTH_COOKIE_NAME)
     if not token:
         return UnauthorizedResponse(message="请求服务鉴权失败, 请携带有效 Token 进行访问")
 
@@ -123,4 +122,16 @@ async def auth_middleware(request: Request, call_next):
             f"鉴权中间件异常: {exc}\n{traceback.format_exc()}"
         )
         return UnauthorizedResponse(message="请求服务鉴权失败, 服务暂时不可用, 请稍后重试")
-    return await call_next(request)
+    response = await call_next(request)
+    if header_token and request_path.startswith("/claudeEngineering/ide"):
+        forwarded_proto = request.headers.get("x-forwarded-proto", "")
+        response.set_cookie(
+            key=PROJECT_CONFIG.IDE_AUTH_COOKIE_NAME,
+            value=header_token,
+            max_age=PROJECT_CONFIG.AUTH_JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            httponly=True,
+            secure=request.url.scheme == "https" or forwarded_proto.split(",")[0].strip() == "https",
+            samesite="lax",
+            path="/claudeEngineering/ide",
+        )
+    return response

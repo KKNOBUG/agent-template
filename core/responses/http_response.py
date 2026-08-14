@@ -2,14 +2,13 @@
 from typing import Optional, Union, List, Any, Dict
 
 from core.responses import BaseResponse
-from enums import Code, Status, Message
+from enums import Code, Message
 
 DataType = Optional[Union[int, str, List, Dict[str, Any]]]
 
 
 class SuccessResponse(BaseResponse):
     code = Code.CODE200
-    status = Status.SUCCESS
     message = Message.MESSAGE200
     data = {}
     total = None
@@ -20,7 +19,6 @@ class SuccessResponse(BaseResponse):
 
 class FailureResponse(BaseResponse):
     code = Code.CODE999
-    status = Status.FAILURE
     message = Message.MESSAGE999
     data = {}
     total = None
@@ -31,7 +29,6 @@ class FailureResponse(BaseResponse):
 
 class BadReqResponse(BaseResponse):
     code = Code.CODE400
-    status = Status.FAILURE
     message = "请求失败"
     data = {}
     total = None
@@ -42,7 +39,6 @@ class BadReqResponse(BaseResponse):
 
 class SyntaxErrorResponse(BaseResponse):
     code = Code.CODE999
-    status = Status.FAILURE
     message = "语法错误"
     data = {}
     total = None
@@ -53,7 +49,6 @@ class SyntaxErrorResponse(BaseResponse):
 
 class ParameterResponse(BaseResponse):
     code = Code.CODE400
-    status = Status.FAILURE
     message = Message.MESSAGE400
     data = {}
     total = None
@@ -64,7 +59,6 @@ class ParameterResponse(BaseResponse):
 
 class FileExtensionResponse(BaseResponse):
     code = Code.CODE400
-    status = Status.FAILURE
     message = "文件扩展名不符合规范"
     data = {}
     total = None
@@ -75,7 +69,6 @@ class FileExtensionResponse(BaseResponse):
 
 class FileTooManyResponse(BaseResponse):
     code = Code.CODE400
-    status = Status.FAILURE
     message = "文件数量过多或体积过大"
     data = {}
     total = None
@@ -86,7 +79,6 @@ class FileTooManyResponse(BaseResponse):
 
 class DataBaseStorageResponse(BaseResponse):
     code = Code.CODE400
-    status = Status.FAILURE
     message = "数据库存储异常"
     data = {}
     total = None
@@ -97,7 +89,6 @@ class DataBaseStorageResponse(BaseResponse):
 
 class DataAlreadyExistsResponse(BaseResponse):
     code = Code.CODE400
-    status = Status.FAILURE
     message = "数据或文件已存在"
     data = {}
     total = None
@@ -108,7 +99,6 @@ class DataAlreadyExistsResponse(BaseResponse):
 
 class UnauthorizedResponse(BaseResponse):
     code = Code.CODE401
-    status = Status.FAILURE
     message = Message.MESSAGE401
     data = {}
     total = None
@@ -119,7 +109,6 @@ class UnauthorizedResponse(BaseResponse):
 
 class ForbiddenResponse(BaseResponse):
     code = Code.CODE403
-    status = Status.FAILURE
     message = Message.MESSAGE403
     data = {}
     total = None
@@ -130,7 +119,6 @@ class ForbiddenResponse(BaseResponse):
 
 class NotFoundResponse(BaseResponse):
     code = Code.CODE404
-    status = Status.FAILURE
     message = Message.MESSAGE404
     data = {}
     total = None
@@ -141,7 +129,6 @@ class NotFoundResponse(BaseResponse):
 
 class MethodNotAllowedResponse(BaseResponse):
     code = Code.CODE405
-    status = Status.FAILURE
     message = Message.MESSAGE405
     data = {}
     total = None
@@ -152,7 +139,6 @@ class MethodNotAllowedResponse(BaseResponse):
 
 class RequestTimeoutResponse(BaseResponse):
     code = Code.CODE408
-    status = Status.FAILURE
     message = Message.MESSAGE408
     data = {}
     total = None
@@ -163,7 +149,6 @@ class RequestTimeoutResponse(BaseResponse):
 
 class LimiterResponse(BaseResponse):
     code = Code.CODE429
-    status = Status.FAILURE
     message = Message.MESSAGE429
     data = {}
     total = None
@@ -174,7 +159,6 @@ class LimiterResponse(BaseResponse):
 
 class InternalErrorResponse(BaseResponse):
     code = Code.CODE500
-    status = Status.FAILURE
     message = Message.MESSAGE500
     data = {}
     total = None
@@ -185,7 +169,6 @@ class InternalErrorResponse(BaseResponse):
 
 class BadGatewayResponse(BaseResponse):
     code = Code.CODE502
-    status = Status.FAILURE
     message = Message.MESSAGE502
     data = {}
     total = None
@@ -196,7 +179,6 @@ class BadGatewayResponse(BaseResponse):
 
 class GatewayTimeoutResponse(BaseResponse):
     code = Code.CODE504
-    status = Status.FAILURE
     message = Message.MESSAGE504
     data = {}
     total = None

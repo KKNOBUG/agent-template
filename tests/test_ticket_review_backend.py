@@ -98,7 +98,7 @@ def test_export_review_excel_validates_and_generates_xlsx():
     with _client() as client:
         invalid = client.post("/exportReviewExcel", json={"json": {}})
         assert invalid.status_code == 200
-        assert invalid.json()["code"] == "E000000"
+        assert invalid.json()["code"] == "999999"
 
         exported = client.post(
             "/exportReviewExcel",

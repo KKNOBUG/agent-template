@@ -1,0 +1,83 @@
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator
+
+from fastapi import FastAPI
+from fastapi.routing import APIRoute
+from tortoise import Tortoise
+from tortoise.exceptions import DBConnectionError
+
+from applications.code_server_ide.database import (
+    is_database_initialized as is_ide_database_initialized,
+)
+from applications.code_server_ide.lifecycle import start_code_server_ide, stop_code_server_ide
+from applications.ticket_review.lifecycle import start_ticket_review, stop_ticket_review
+from applications.ticket_review.services.db1_pool import is_db1_pool_initialized
+from applications.ticket_review.services.db2_pool import is_db2_pool_initialized
+from configure import ROUTER_SUMMARY, ROUTER_TAGS
+
+from .app_initialization import register_database
+from .data_initialization import init_database_table
+
+
+async def start_application_modules(app: FastAPI) -> None:
+    """Start the main database and registered application modules."""
+    app.state.shutting_down = False
+    app.state.ticket_review_started = False
+    app.state.code_server_ide_started = False
+    try:
+        await register_database(app)
+    except DBConnectionError as exc:
+        raise RuntimeError(f"数据库连接失败，请检查主机地址是否可达: {exc}") from exc
+
+    await init_database_table(app)
+    await start_ticket_review(app)
+    await start_code_server_ide(app)
+
+
+async def stop_application_modules(app: FastAPI) -> None:
+    """Stop application modules in reverse order and close the main ORM."""
+    app.state.shutting_down = True
+    try:
+        if getattr(app.state, "code_server_ide_started", False):
+            await stop_code_server_ide(app)
+    finally:
+        try:
+            if getattr(app.state, "ticket_review_started", False):
+                await stop_ticket_review(app)
+        finally:
+            await Tortoise.close_connections()
+
+
+def application_health(app: FastAPI) -> dict[str, Any]:
+    worker_error = getattr(app.state, "ticket_review_worker_error", None)
+    status = "ok" if not worker_error else "degraded"
+    return {
+        "status": status,
+        "modules": {
+            "ticket_review": {
+                "started": getattr(app.state, "ticket_review_started", False),
+                "db1": is_db1_pool_initialized(),
+                "db2": is_db2_pool_initialized(),
+                "workerError": worker_error,
+            },
+            "code_server_ide": {
+                "started": getattr(app.state, "code_server_ide_started", False),
+                "database": is_ide_database_initialized(),
+            },
+        },
+    }
+
+
+@asynccontextmanager
+async def application_lifespan(app: FastAPI) -> AsyncIterator[None]:
+    try:
+        await start_application_modules(app)
+        for route in app.routes:
+            if isinstance(route, APIRoute):
+                ROUTER_SUMMARY[route.path] = route.summary
+                ROUTER_TAGS[route.path] = route.tags
+        yield
+    finally:
+        await stop_application_modules(app)

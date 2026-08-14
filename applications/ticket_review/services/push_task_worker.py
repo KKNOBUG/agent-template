@@ -5,7 +5,7 @@ import logging
 import time
 # from typing import Any
 from datetime import datetime
-from applications.ticket_review.config import settings
+from configure import PROJECT_CONFIG
 from applications.ticket_review.models.push_task import PushTaskRecord
 from applications.ticket_review.services.push_ticket_review import (
     PushTicketReviewRecord,
@@ -29,8 +29,8 @@ class PushTaskWorker:
         last_stale_reset = 0.0
         last_failed_retry = 0.0
         stale_reset_interval = _stale_reset_interval(
-            settings.push_task_stale_processing_seconds,
-            settings.push_task_poll_interval,
+            PROJECT_CONFIG.TICKET_PUSH_TASK_STALE_PROCESSING_SECONDS,
+            PROJECT_CONFIG.TICKET_PUSH_TASK_POLL_INTERVAL,
         )
         try:
             while not self._stop.is_set():
@@ -38,12 +38,12 @@ class PushTaskWorker:
                     now = time.monotonic()
                     if now - last_stale_reset >= stale_reset_interval:
                         await PushTaskRecord.reset_stale(
-                            settings.push_task_stale_processing_seconds
+                            PROJECT_CONFIG.TICKET_PUSH_TASK_STALE_PROCESSING_SECONDS
                         )
                         last_stale_reset = now
                     if now - last_failed_retry >= 60.0:
                         retried = await PushTaskRecord.retry_failed(
-                            settings.push_task_failed_retry_delay_seconds
+                            PROJECT_CONFIG.TICKET_PUSH_TASK_FAILED_RETRY_DELAY_SECONDS
                         )
                         if retried:
                             logger.info(
@@ -51,8 +51,8 @@ class PushTaskWorker:
                                 retried,
                             )
                         last_failed_retry = now
-                    if now - last_cleanup >= settings.push_task_cleanup_interval:
-                        await PushTaskRecord.cleanup(settings.push_task_retention_days)
+                    if now - last_cleanup >= PROJECT_CONFIG.TICKET_PUSH_TASK_CLEANUP_INTERVAL:
+                        await PushTaskRecord.cleanup(PROJECT_CONFIG.TICKET_PUSH_TASK_RETENTION_DAYS)
                         last_cleanup = now
 
                     task = await PushTaskRecord.claim_next()
@@ -62,7 +62,7 @@ class PushTaskWorker:
                 except Exception:
                     logger.exception("Push task worker iteration failed; retrying")
                 if not self._stop.is_set():
-                    await self._wait_for_stop(settings.push_task_poll_interval)
+                    await self._wait_for_stop(PROJECT_CONFIG.TICKET_PUSH_TASK_POLL_INTERVAL)
         except asyncio.CancelledError:
             raise
         finally:
@@ -81,7 +81,7 @@ class PushTaskWorker:
         heartbeat_stop: asyncio.Event,
         lease_lost: asyncio.Event,
     ) -> None:
-        interval = settings.push_task_heartbeat_interval_seconds
+        interval = PROJECT_CONFIG.TICKET_PUSH_TASK_HEARTBEAT_INTERVAL_SECONDS
         try:
             while not heartbeat_stop.is_set():
                 try:
@@ -136,7 +136,7 @@ class PushTaskWorker:
         try:
             async for event in formatter.stream_push_payload(
                 task.raw_payload,
-                batch_size=settings.push_task_batch_size,
+                batch_size=PROJECT_CONFIG.TICKET_PUSH_TASK_BATCH_SIZE,
                 start_after=resume_processed,
             ):
                 if event["type"] == "start":

@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 
 import aiomysql
 
-from applications.ticket_review.config import settings
+from configure import PROJECT_CONFIG
 
 _db1_pool: aiomysql.Pool | None = None
 
@@ -16,16 +16,16 @@ async def init_db1_pool() -> None:
     if _db1_pool is not None:
         return
     _db1_pool = await aiomysql.create_pool(
-        host=settings.db1_host,
-        port=settings.db1_port,
-        user=settings.db1_user,
-        password=settings.db1_password,
-        db=settings.db1_name,
+        host=PROJECT_CONFIG.TICKET_DB1_HOST,
+        port=PROJECT_CONFIG.TICKET_DB1_PORT,
+        user=PROJECT_CONFIG.TICKET_DB1_USER,
+        password=PROJECT_CONFIG.TICKET_DB1_PASSWORD,
+        db=PROJECT_CONFIG.TICKET_DB1_NAME,
         charset="utf8mb4",
         autocommit=False,
-        minsize=settings.db1_pool_min_size,
-        maxsize=settings.db1_pool_max_size,
-        connect_timeout=settings.db1_connect_timeout,
+        minsize=PROJECT_CONFIG.TICKET_DB1_POOL_MIN_SIZE,
+        maxsize=PROJECT_CONFIG.TICKET_DB1_POOL_MAX_SIZE,
+        connect_timeout=PROJECT_CONFIG.TICKET_DB1_CONNECT_TIMEOUT,
         pool_recycle=1800,
     )
 

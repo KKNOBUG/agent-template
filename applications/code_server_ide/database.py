@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from applications.code_server_ide.config import settings
+from configure import PROJECT_CONFIG
 
 _engine = None
 _async_session_factory: async_sessionmaker[AsyncSession] | None = None
@@ -15,8 +15,8 @@ def init_database() -> None:
     """FastAPI lifespan 启动时调用，创建 engine 和 session factory 单例。"""
     global _engine, _async_session_factory
     _engine = create_async_engine(
-        settings.database_url,
-        echo=settings.db_echo,
+        PROJECT_CONFIG.IDE_DATABASE_URL,
+        echo=PROJECT_CONFIG.IDE_DATABASE_ECHO,
         pool_size=5,
         max_overflow=10,
     )

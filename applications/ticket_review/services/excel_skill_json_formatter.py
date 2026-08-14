@@ -19,7 +19,6 @@ try:
 except ModuleNotFoundError:  # Optional fallback; SDK structured output is the primary path.
     repair_json = None
 
-from applications.ticket_review.config import get_env_int, settings
 from configure import PROJECT_CONFIG
 
 from applications.ticket_review.schemas.push_ticket import (
@@ -297,7 +296,7 @@ class ExcelSkillJsonFormatter:
     async def format_excel(self, excel_bytes: bytes, filename: str) -> str:
         logger.info("[1/4] 开始解析 Excel: %s", filename)
         workbook_data = self._parse_excel(excel_bytes, filename)
-        batch_size = get_env_int("COCO_BATCH_SIZE", 10)
+        batch_size = PROJECT_CONFIG.TICKET_COCO_BATCH_SIZE
         if batch_size > 0 and workbook_data["row_count"] > batch_size:
             return await self._format_excel_in_batches(workbook_data, batch_size)
         return await self._format_workbook_data_once(workbook_data)
@@ -423,15 +422,15 @@ class ExcelSkillJsonFormatter:
                 "schema": CocoJsonResponse.model_json_schema(),
             },
         )
-        sdk_pool = settings.sdk_model_pool.strip()
-        models = sdk_pool.split(";") if sdk_pool else list(settings.model_pool)
-        default_model = settings.anthropic_model.strip()
+        sdk_pool = PROJECT_CONFIG.TICKET_SDK_MODEL_POOL.strip()
+        models = sdk_pool.split(";") if sdk_pool else PROJECT_CONFIG.TICKET_MODEL_POOL.split(";")
+        default_model = PROJECT_CONFIG.TICKET_ANTHROPIC_MODEL.strip()
         if default_model and default_model not in models:
             models.append(default_model)
         logger.info("[3/4] SDK 模型池: %s", models)
 
         last_error = ""
-        retry_count = max(1, settings.model_retry_count)
+        retry_count = max(1, PROJECT_CONFIG.TICKET_MODEL_RETRY_COUNT)
         for index, model in enumerate(models, start=1):
             if not model:
                 continue
@@ -448,18 +447,18 @@ class ExcelSkillJsonFormatter:
                 try:
                     result_text = await asyncio.wait_for(
                         self._run_session(options, prompt),
-                        timeout=settings.model_timeout,
+                        timeout=PROJECT_CONFIG.TICKET_MODEL_TIMEOUT,
                     )
                     logger.info("[4/4] SDK 模型 %s 调用成功", model)
                     return self._normalize_json_string(result_text)
                 except asyncio.TimeoutError:
-                    last_error = f"模型 {model} 执行超时（{settings.model_timeout}秒）"
+                    last_error = f"模型 {model} 执行超时（{PROJECT_CONFIG.TICKET_MODEL_TIMEOUT}秒）"
                     logger.warning(last_error)
                 except Exception as exc:
                     last_error = f"模型 {model} 执行失败: {exc}"
                     logger.warning(last_error)
                 if attempt < retry_count:
-                    await asyncio.sleep(max(0, settings.model_retry_delay))
+                    await asyncio.sleep(max(0, PROJECT_CONFIG.TICKET_MODEL_RETRY_DELAY))
 
         logger.error("[4/4] 所有调用方式均失败")
         raise RuntimeError(f"Claude Agent SDK所有模型均失败，最后错误：{last_error}")
