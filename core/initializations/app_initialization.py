@@ -173,7 +173,7 @@ def register_routers(app: FastAPI) -> None:
     from applications.base.views import base_public, base_secure, router_secure, audit_secure
     from applications.user.views import user_public_router, user_secure_router
     from applications.example.views import example_category_router, example_product_router
-    from applications.weixianzhe.views import test_case_gen_router
+    from applications.test_case_generate.views import test_case_generate_router
     from applications.zhoushengjie.views import case_recommendation_router
     from applications.ticket_review.views import ticket_review_router
     from applications.code_server_ide.views import code_server_ide_router
@@ -188,8 +188,14 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=example_category_router, prefix="/example", tags=["示例服务-商品分类"], dependencies=[DependAuth])
     app.include_router(router=example_product_router, prefix="/example", tags=["示例服务-商品模型"], dependencies=[DependAuth])
     app.include_router(router=case_recommendation_router, prefix="/case-recommendation", tags=["用例推荐"])
-    app.include_router(router=test_case_gen_router, prefix="/test-case-gen", tags=["测试用例生成"])
-    # Keep the two imported backends' public URL contracts unchanged.
+    app.include_router(router=test_case_generate_router, prefix="/testCaseGen", tags=["测试用例生成"])
+    app.include_router(
+        router=test_case_generate_router,
+        prefix="/test-case-gen",
+        tags=["测试用例生成（兼容路径）"],
+        include_in_schema=False,
+    )
+    # Keep the imported backends' public URL contracts unchanged.
     app.include_router(router=ticket_review_router)
     app.include_router(router=code_server_ide_router, prefix="/claudeEngineering")
 

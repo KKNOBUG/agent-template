@@ -26,8 +26,8 @@ async def _generate_test_cases_impl(
     """异步执行体：在 Celery Worker 的 event loop 中运行。"""
     await init_tortoise_orm()
 
-    from applications.weixianzhe.models.test_case_task_model import TestCaseTask
-    from applications.weixianzhe.services.claude_generator import ClaudeTestCaseGenerator
+    from applications.test_case_generate.models.test_case_task_model import TestCaseTask
+    from applications.test_case_generate.services.claude_generator import ClaudeTestCaseGenerator
     from common.file_converter import convert_file_to_md
 
     record = await TestCaseTask.get_or_none(id=task_id)
@@ -103,7 +103,7 @@ async def generate_test_cases_task(
         # 更新任务状态为 failed
         try:
             await init_tortoise_orm()
-            from applications.weixianzhe.models.test_case_task_model import TestCaseTask
+            from applications.test_case_generate.models.test_case_task_model import TestCaseTask
             record = await TestCaseTask.get_or_none(id=task_id)
             if record:
                 record.status = "failed"

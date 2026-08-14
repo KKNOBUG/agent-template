@@ -89,3 +89,15 @@ async def test_partial_startup_still_stops_started_ticket_module(monkeypatch):
             pass
 
     stop_ticket.assert_awaited_once_with(app)
+
+
+def test_health_reports_test_case_generate_as_celery_module():
+    app = FastAPI()
+
+    health = module_initialization.application_health(app)
+
+    assert health["modules"]["test_case_generate"] == {
+        "registered": True,
+        "executor": "celery",
+        "outputDirectory": module_initialization.PROJECT_CONFIG.TEST_CASE_OUTPUT_DIR,
+    }

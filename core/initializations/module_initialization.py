@@ -15,7 +15,7 @@ from applications.code_server_ide.lifecycle import start_code_server_ide, stop_c
 from applications.ticket_review.lifecycle import start_ticket_review, stop_ticket_review
 from applications.ticket_review.services.db1_pool import is_db1_pool_initialized
 from applications.ticket_review.services.db2_pool import is_db2_pool_initialized
-from configure import ROUTER_SUMMARY, ROUTER_TAGS
+from configure import PROJECT_CONFIG, ROUTER_SUMMARY, ROUTER_TAGS
 
 from .app_initialization import register_database
 from .data_initialization import init_database_table
@@ -56,6 +56,11 @@ def application_health(app: FastAPI) -> dict[str, Any]:
     return {
         "status": status,
         "modules": {
+            "test_case_generate": {
+                "registered": True,
+                "executor": "celery",
+                "outputDirectory": PROJECT_CONFIG.TEST_CASE_OUTPUT_DIR,
+            },
             "ticket_review": {
                 "started": getattr(app.state, "ticket_review_started", False),
                 "db1": is_db1_pool_initialized(),

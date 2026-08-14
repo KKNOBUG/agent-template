@@ -14,7 +14,7 @@ import json
 import os
 import uuid
 
-from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 from sse_starlette.sse import EventSourceResponse
 
 from services.claude_stream_service import (
@@ -31,7 +31,6 @@ stream_test_case_router = APIRouter()
 
 @stream_test_case_router.post("/streamGenerateTestCases", summary="流式生成测试用例（完整过程）")
 async def stream_generate_test_cases(
-    request: Request,
     files: list[UploadFile] = File(...),
     app_system: str = Form(""),
     requirement_name: str = Form(""),
@@ -60,7 +59,7 @@ async def stream_generate_test_cases(
         files_data.append((file_bytes, safe_filename))
 
     # 2) 创建任务文件夹
-    base_dir = os.path.join(PROJECT_CONFIG.WORKSPACE_DIR, "test_case")
+    base_dir = PROJECT_CONFIG.TEST_CASE_OUTPUT_DIR
     folder_path = os.path.abspath(os.path.join(base_dir, uuid.uuid4().hex))
     os.makedirs(folder_path, exist_ok=True)
 
@@ -86,7 +85,7 @@ async def stream_generate_test_cases(
     )
 
     options = build_stream_options(
-        skills=["test-case-generator"],
+        skills=[skill for skill in PROJECT_CONFIG.TEST_CASE_SKILLS.split(";") if skill],
         output_dir=folder_path,
         model=model,
     )
@@ -114,7 +113,6 @@ async def stream_generate_test_cases(
 
 @stream_test_case_router.post("/streamGenerateTestCasesThinking", summary="流式生成测试用例（仅思考过程）")
 async def stream_generate_test_cases_thinking(
-    request: Request,
     files: list[UploadFile] = File(...),
     app_system: str = Form(""),
     requirement_name: str = Form(""),
@@ -144,7 +142,7 @@ async def stream_generate_test_cases_thinking(
         files_data.append((file_bytes, safe_filename))
 
     # 2) 创建任务文件夹
-    base_dir = os.path.join(PROJECT_CONFIG.WORKSPACE_DIR, "test_case")
+    base_dir = PROJECT_CONFIG.TEST_CASE_OUTPUT_DIR
     folder_path = os.path.abspath(os.path.join(base_dir, uuid.uuid4().hex))
     os.makedirs(folder_path, exist_ok=True)
 
@@ -169,7 +167,7 @@ async def stream_generate_test_cases_thinking(
     )
 
     options = build_stream_options(
-        skills=["test-case-generator"],
+        skills=[skill for skill in PROJECT_CONFIG.TEST_CASE_SKILLS.split(";") if skill],
         output_dir=folder_path,
         model=model,
     )

@@ -5,6 +5,7 @@
 @Module  : claude_generator.py
 @DateTime: 2026/6/11
 """
+from configure import PROJECT_CONFIG
 from services.claude_agent_service import build_base_options, run_with_model_pool
 
 
@@ -16,7 +17,7 @@ class ClaudeTestCaseGenerator:
         )
 
         base_options = build_base_options(
-            skills=["test-case-generator"],
+            skills=[skill for skill in PROJECT_CONFIG.TEST_CASE_SKILLS.split(";") if skill],
             output_dir=output_dir,
         )
 

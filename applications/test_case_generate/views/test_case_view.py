@@ -11,16 +11,16 @@
 import os
 import uuid
 from pathlib import Path
-from typing import Optional
-
-from fastapi import APIRouter, BackgroundTasks, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 
-from applications.weixianzhe.models.test_case_task_model import TestCaseTask
-from applications.weixianzhe.schemas.test_case_schema import TaskInfo, TaskListResponse
-from applications.weixianzhe.utils.xlsx_writer import md_to_xlsx
+from applications.test_case_generate.dependencies import get_current_user
+from applications.test_case_generate.models.test_case_task_model import TestCaseTask
+from applications.test_case_generate.schemas.test_case_schema import TaskInfo, TaskListResponse
+from applications.test_case_generate.utils.xlsx_writer import md_to_xlsx
 from configure import LOGGER, PROJECT_CONFIG
 from core.responses import FailureResponse, SuccessResponse
+from services import AuthenticatedUserContext
 
 test_case_router = APIRouter()
 
@@ -32,10 +32,10 @@ def health():
 
 @test_case_router.post("/generateTestCases", summary="生成测试用例")
 async def generate_test_cases(
-    request: Request,
     files: list[UploadFile] = File(...),
     app_system: str = Form(""),
     requirement_name: str = Form(""),
+    current_user: AuthenticatedUserContext = Depends(get_current_user),
 ):
     """接收请求 → 保存文件 + 创建任务记录 → 投递 Celery → 立即返回 task_id"""
     if not files:
@@ -52,10 +52,10 @@ async def generate_test_cases(
         safe_filename = os.path.basename(file.filename)
         files_data.append((docx_bytes, safe_filename))
 
-    creater_user = request.headers.get("x-real-ip") or "user"
+    creator_user = current_user.username
 
     # 2) 创建任务文件夹
-    base_dir = os.path.join(PROJECT_CONFIG.WORKSPACE_DIR, "test_case")
+    base_dir = PROJECT_CONFIG.TEST_CASE_OUTPUT_DIR
     folder_path = os.path.abspath(os.path.join(base_dir, uuid.uuid4().hex))
     os.makedirs(folder_path, exist_ok=True)
 
@@ -73,8 +73,8 @@ async def generate_test_cases(
         app_system=app_system,
         requirement_name=requirement_name,
         status="pending",
-        created_user=creater_user,
-        updated_user=creater_user,
+        created_user=creator_user,
+        updated_user=creator_user,
     )
 
     # 5) 投递 Celery 任务

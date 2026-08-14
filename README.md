@@ -50,6 +50,9 @@
 │   ├── model_config/               # LLM 模型配置（连接/参数/厂商/深度思考）
 │   ├── agent/                      # Agent 技能与 MCP 服务配置
 │   ├── task_center/                # 任务中心（Celery 定时任务调度）
+│   ├── test_case_generate/         # DOCX 测试用例生成与产物下载
+│   ├── ticket_review/              # 环境工单预审
+│   ├── code_server_ide/            # Code Server IDE 管理与代理
 │   └── example/                    # 示例模块（商品分类/模型）
 ├── celery_scheduler/               # Celery 定时任务调度
 │   ├── celery_base.py              # Celery 基础配置与 Tortoise ORM 初始化
@@ -72,6 +75,9 @@
 ├── .env                            # 环境变量（需自行创建）
 └── pyproject.toml                  # Python 依赖（uv / pip）
 ```
+
+测试用例生成保留来源仓库的 `/testCaseGen` 路径，兼容旧路径 `/test-case-gen`。成功响应统一为
+`{"code":"000000","message":"请求成功","data":...}`，生成任务由现有 Celery Worker 执行。
 
 ## 环境要求
 

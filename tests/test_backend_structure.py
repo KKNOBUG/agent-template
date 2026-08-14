@@ -27,3 +27,13 @@ def test_ide_database_url_is_assembled_by_project_config():
 def test_removed_module_config_adapters_do_not_exist():
     assert not (PROJECT_ROOT / "applications/ticket_review/config.py").exists()
     assert not (PROJECT_ROOT / "applications/code_server_ide/config.py").exists()
+
+
+def test_test_case_generate_uses_project_layers():
+    module_root = PROJECT_ROOT / "applications/test_case_generate"
+    assert module_root.is_dir()
+    assert not (PROJECT_ROOT / "applications/weixianzhe").exists()
+    assert not (module_root / "config.py").exists()
+    assert not (module_root / "schemas/response.py").exists()
+    assert PROJECT_CONFIG.TEST_CASE_SKILLS == "test-case-generator"
+    assert PROJECT_CONFIG.TEST_CASE_OUTPUT_DIR

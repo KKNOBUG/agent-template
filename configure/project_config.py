@@ -133,6 +133,14 @@ class ProjectConfig(BaseSettings):
         description="Claude 模型池（短别名或具体模型名，用分号分隔，按顺序轮询）",
     )
     TEST_CASE_MODEL_TIMEOUT: int = Field(default=1200, description="单个模型调用超时秒数")
+    TEST_CASE_SKILLS: str = Field(
+        default="test-case-generator",
+        description="测试用例生成启用的 Claude skills，多个值使用分号分隔",
+    )
+    TEST_CASE_OUTPUT_DIR: str = Field(
+        default=os.path.abspath(os.path.join(WORKSPACE_DIR, "test_case")),
+        description="测试用例生成任务和产物目录",
+    )
 
     # 环境工单预审
     TICKET_MODEL_POOL: str = "claude-sonnet-4-6;claude-opus-4-6;claude-haiku-4-5-20251001"
@@ -337,6 +345,7 @@ class ProjectConfig(BaseSettings):
         Path(self.OUTPUT_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.OUTPUT_DATAGRAM_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.CHROMA_DIR).mkdir(parents=True, exist_ok=True)
+        Path(self.TEST_CASE_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
 
         return self.assemble_connection_urls()
 

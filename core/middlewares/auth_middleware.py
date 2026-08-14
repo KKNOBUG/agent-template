@@ -85,8 +85,6 @@ async def auth_middleware(request: Request, call_next):
         "* /static/*",
 
         "POST /case-recommendation/*",
-        "POST /test-case-gen/*",
-
         # Imported environment-ticket backend keeps its existing public API.
         "* /pushTickets",
         "* /pushTasks/*",
