@@ -1,0 +1,34 @@
+services:
+  code-server:
+    image: ${IDE_IMAGE:-coco-code-server:amd64-20260730}
+    container_name: ${IDE_CONTAINER_NAME}
+    command: ["--auth", "${IDE_CODE_SERVER_AUTH:-none}"]
+    environment:
+      SESSION_ID: ${SESSION_ID}
+      USER_ID: ${USER_ID}
+      PROJECT_ID: ${PROJECT_ID}
+      SYSTEM_ID: ${SYSTEM_ID}
+      WORKSPACE_MOUNT_MODE: ${WORKSPACE_MOUNT_MODE:-rw}
+      COCO_PIP_INDEX_URL: ${COCO_PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple/}
+      COCO_PIP_TRUSTED_HOST: ${COCO_PIP_TRUSTED_HOST:-mirrors.aliyun.com}
+      COCO_NPM_REGISTRY: ${COCO_NPM_REGISTRY:-https://registry.npmmirror.com}
+    volumes:
+      - ${WORKSPACE_DIR}:/home/coder/project:${WORKSPACE_MOUNT_MODE:-ro}
+      - ${CLAUDE_DIR}:/home/coder/project/.claude:${CLAUDE_MOUNT_MODE:-rw}
+      - ${CONFIG_DIR}:/home/coder/.config
+      - ${LOCAL_DIR}:/home/coder/.local
+    networks:
+      - coco-ide-net
+    ports:
+      - "127.0.0.1:${IDE_HOST_PORT}:8080"
+    mem_limit: ${IDE_MEMORY_LIMIT:-2g}
+    memswap_limit: ${IDE_MEMORY_SWAP_LIMIT:-2g}
+    cpus: ${IDE_CPU_LIMIT:-2}
+    pids_limit: ${IDE_PIDS_LIMIT:-512}
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  coco-ide-net:
+    name: ${IDE_DOCKER_NETWORK:-coco-ide-net}
+    external: true

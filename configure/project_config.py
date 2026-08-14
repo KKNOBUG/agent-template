@@ -134,6 +134,79 @@ class ProjectConfig(BaseSettings):
     )
     TEST_CASE_MODEL_TIMEOUT: int = Field(default=1200, description="单个模型调用超时秒数")
 
+    # 环境工单预审
+    TICKET_MODEL_POOL: str = "claude-sonnet-4-6;claude-opus-4-6;claude-haiku-4-5-20251001"
+    TICKET_MODEL_TIMEOUT: int = 1200
+    TICKET_MODEL_RETRY_COUNT: int = 2
+    TICKET_MODEL_RETRY_DELAY: int = 3
+    TICKET_SDK_MODEL_POOL: str = ""
+    TICKET_ANTHROPIC_MODEL: str = ""
+    TICKET_COCO_BATCH_SIZE: int = 10
+    TICKET_DB1_HOST: str = ""
+    TICKET_DB1_PORT: int = 3306
+    TICKET_DB1_USER: str = ""
+    TICKET_DB1_PASSWORD: str = ""
+    TICKET_DB1_NAME: str = ""
+    TICKET_DB1_POOL_MIN_SIZE: int = 1
+    TICKET_DB1_POOL_MAX_SIZE: int = 5
+    TICKET_DB1_CONNECT_TIMEOUT: int = 10
+    TICKET_DB2_HOST: str = ""
+    TICKET_DB2_PORT: int = 3306
+    TICKET_DB2_USER: str = ""
+    TICKET_DB2_PASSWORD: str = ""
+    TICKET_DB2_NAME: str = ""
+    TICKET_DB2_POOL_MIN_SIZE: int = 1
+    TICKET_DB2_POOL_MAX_SIZE: int = 5
+    TICKET_DB2_CONNECT_TIMEOUT: int = 10
+    TICKET_PUSH_TASK_WORKER_ENABLED: bool = True
+    TICKET_PUSH_TASK_POLL_INTERVAL: int = 2
+    TICKET_PUSH_TASK_BATCH_SIZE: int = 5
+    TICKET_PUSH_TASK_RETENTION_DAYS: int = 7
+    TICKET_PUSH_TASK_CLEANUP_INTERVAL: int = 3600
+    TICKET_PUSH_TASK_STALE_PROCESSING_SECONDS: int = 1800
+    TICKET_PUSH_TASK_FAILED_RETRY_DELAY_SECONDS: int = 86400
+    TICKET_PUSH_TASK_SSE_HEARTBEAT_SECONDS: int = 15
+    TICKET_PUSH_TASK_HEARTBEAT_INTERVAL_SECONDS: int = 60
+
+    # Code Server IDE
+    IDE_DATABASE_HOST: str = ""
+    IDE_DATABASE_PORT: int = 3306
+    IDE_DATABASE_USER: str = ""
+    IDE_DATABASE_PASSWORD: str = ""
+    IDE_DATABASE_NAME: str = ""
+    IDE_DATABASE_ECHO: bool = False
+    IDE_IMAGE: str = "coco-code-server:amd64-20260730"
+    IDE_DOCKER_NETWORK: str = "coco-ide-net"
+    IDE_CONTAINER_PREFIX: str = "ide-code-server"
+    IDE_SESSIONS_ROOT: str = "~/claude_engineering/ide-sessions"
+    IDE_CODE_SERVER_AUTH: str = "none"
+    IDE_UID: int = 1001
+    IDE_BASE_HOST_PORT: int = 18081
+    IDE_HOST_PORT_RANGE: int = 1000
+    IDE_MEMORY_LIMIT: str = "2g"
+    IDE_MEMORY_SWAP_LIMIT: str = "2g"
+    IDE_CPU_LIMIT: str = "2"
+    IDE_PIDS_LIMIT: str = "512"
+    COCO_NPM_REGISTRY: str = "https://registry.npmmirror.com"
+    COCO_PIP_INDEX_URL: str = "https://mirrors.aliyun.com/pypi/simple/"
+    COCO_PIP_TRUSTED_HOST: str = "mirrors.aliyun.com"
+    IDE_MAX_RUNNING_CONTAINERS: int = 0
+    IDE_IDLE_STOP_MINUTES: int = 30
+    IDE_IDLE_PENDING_MINUTES: int = 5
+    IDE_STOPPING_TIMEOUT_MINUTES: int = 5
+    IDE_DOCKER_STOP_TIMEOUT_SECONDS: int = 30
+    IDE_STOPPED_CONTAINER_RM_MINUTES: int = 1440
+    IDE_BUSY_FILE_WINDOW_MINUTES: int = 2
+    IDE_BUSY_CPU_THRESHOLD: float = 2
+    IDE_BUSY_MAX_HOURS: int = 6
+    IDE_DATA_RETENTION_DAYS: int = 7
+    IDE_SUPER_ADMIN_USERS: str = ""
+    IDE_TRUST_USER_HEADERS: bool = False
+    IDE_TRUSTED_AUTH_PROXIES: str = ""
+    IDE_ALLOW_IP_IDENTITY: bool = False
+    IDE_ALLOW_VIEW_OTHER_USERS_PROJECTS: bool = True
+    IDE_ALLOW_CROSS_USER_EDIT_IN_SYSTEM: bool = False
+
     # # 允许访问的源（域名）列表
     CORS_ORIGINS: List[str] = [
         "http://localhost",

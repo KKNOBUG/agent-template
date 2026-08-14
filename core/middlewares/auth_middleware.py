@@ -86,6 +86,16 @@ async def auth_middleware(request: Request, call_next):
 
         "POST /case-recommendation/*",
         "POST /test-case-gen/*",
+
+        # Imported environment-ticket backend keeps its existing public API.
+        "* /pushTickets",
+        "* /pushTasks/*",
+        "* /formatExcelJson",
+        "* /reviewResults/*",
+        "* /exportReviewExcel",
+
+        # Code Server IDE keeps its own trusted-header/IP identity adapter.
+        "* /claudeEngineering/ide/*",
     ]
 
     if _is_whitelisted(whitelist=whitelist, request_method=request_method, request_path=request_path):
