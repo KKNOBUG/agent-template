@@ -6,7 +6,6 @@ from urllib.parse import unquote
 
 import orjson
 from fastapi import Request, Response
-from starlette.datastructures import FormData
 
 from applications.base.models.audit_model import Audit
 from applications.user.models.user_model import User
@@ -120,30 +119,29 @@ async def logging_middleware(request: Request, call_next):
     # 变量初始化
     request_body, response_body = b'', b''
 
+    # 前端大小校验可被绕过；在读取请求体前按 Content-Length 快速拒绝。
+    is_upload: bool = is_upload_request(request)
+    max_upload_bytes = PROJECT_CONFIG.RAG_MAX_UPLOAD_MB * 1024 * 1024
+    content_length = int(request.headers.get("content-length") or 0)
+    if is_upload and content_length > max_upload_bytes:
+        return Response(
+            content=orjson.dumps({
+                "code": "400400",
+                "message": f"文件超过 {PROJECT_CONFIG.RAG_MAX_UPLOAD_MB}MB 限制",
+                "data": None,
+            }),
+            status_code=413,
+            media_type="application/json",
+        )
+
     # 读取并保存原始请求体，重置请求流以便后续处理
     original_request_body: bytes = await request.body()
     request._body = original_request_body
     request._stream = BytesIO(original_request_body)
 
-    # 判断是否为文件上传请求
-    is_upload: bool = is_upload_request(request)
     if is_upload:
-        form_data: Dict[str, Any] = {}
-        original_form_data: FormData = await request.form()
-        # 提取字段和文件信息
-        for field_name, field_value in original_form_data.items():
-            if hasattr(field_value, 'file'):
-                form_data[field_name] = {
-                    "filename": field_value.filename,
-                    "content_type": field_value.content_type,
-                    "size": field_value.size
-                }
-            else:
-                form_data[field_name] = field_value
-
-        # 重置流的位置到开头，确保后续处理能正确读取
-        request_body = orjson.dumps(form_data)
-        request._stream.seek(0)
+        # 不在中间件重复解析 multipart；端点负责流式读取和实际大小复核。
+        request_body = b"<MULTIPART UPLOAD>"
 
     # 记录请求信息
     request_method: str = request.method
@@ -152,7 +150,7 @@ async def logging_middleware(request: Request, call_next):
     if "referer" in request_header and request_header["referer"]:
         try:
             request_header["referer"] = unquote(request_header["referer"])
-        except:
+        except Exception:
             pass
     request_client: str = request.client.host if request.client else "127.0.0.1"
     request_tags: str = ROUTER_TAGS.get(request_router or "未定义", "未定义")

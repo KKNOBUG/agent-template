@@ -177,6 +177,7 @@ def register_routers(app: FastAPI) -> None:
     from applications.zhoushengjie.views import case_recommendation_router
     from applications.ticket_review.views import ticket_review_router
     from applications.code_server_ide.views import code_server_ide_router
+    from applications.jiayueyang.views import rag_public_router, rag_secure_router
 
     # 挂在路由蓝图
     app.include_router(router=base_public, prefix="/base", tags=["基础服务"])
@@ -198,6 +199,10 @@ def register_routers(app: FastAPI) -> None:
     # Keep the imported backends' public URL contracts unchanged.
     app.include_router(router=ticket_review_router)
     app.include_router(router=code_server_ide_router, prefix="/claudeEngineering")
+    # jiayueyang RAG 保持合入前的 /api URL 契约。该模块原先无用户体系，
+    # 因此先按公开路由挂载；若后续接入统一用户，可在此增加 DependAuth。
+    app.include_router(router=rag_public_router, prefix="/api", tags=["RAG-文档智能解析与问答"])
+    app.include_router(router=rag_secure_router, prefix="/api", tags=["RAG-文档智能解析与问答"])
 
     from applications.agent.views import mcp_servers_router, skills_router
     from applications.conversation.views import chat_router, history_router

@@ -15,6 +15,7 @@
 *.txt
 *.lock
 *.local
+!requirements.txt
 
 venv/
 */__pycache__/
@@ -22,6 +23,7 @@ venv/
 core/chroma_db/chroma.sqlite3
 output/logs/*
 output/upload/*
+output/rag_upload/*
 
 docling_offline/
 
@@ -30,3 +32,9 @@ workspace/*
 !workspace/.claude/**
 
 .env
+.milvus.db
+dump.rdb
+input/
+inputs/
+tmp/
+node_modules/

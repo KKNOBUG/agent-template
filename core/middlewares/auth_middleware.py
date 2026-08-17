@@ -85,6 +85,8 @@ async def auth_middleware(request: Request, call_next):
         "* /static/*",
 
         "POST /case-recommendation/*",
+        # jiayueyang RAG 模块合入前未启用用户体系，保留其公开 API 契约。
+        "* /api/*",
         # Imported environment-ticket backend keeps its existing public API.
         "* /pushTickets",
         "* /pushTasks/*",

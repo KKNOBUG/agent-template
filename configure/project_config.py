@@ -10,7 +10,7 @@ import os.path
 import platform
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from urllib.parse import quote_plus
 
 from pydantic import Field, model_validator
@@ -102,11 +102,306 @@ class ProjectConfig(BaseSettings):
 
 
 
+    # RAG 文档转换输出根目录（每个文档落在 RAG_OUTPUT_DIR/<job_id>/ 下）
+    RAG_OUTPUT_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "output", "rag_upload"))
+    # RAG 上传源文件留存根目录（每个文档落在 RAG_INPUT_DIR/<job_id>/ 下,
+    # 供解析失败时从源文件重试, 允许重复文件名后以 job_id 隔离）
+    RAG_INPUT_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "input"))
+    # 服务端允许的上传文件大小上限（MB）: 前端 200MB 校验可被绕过, 服务端须独立设防
+    RAG_MAX_UPLOAD_MB: int = Field(default=200, ge=1, description="服务端上传文件大小上限(MB)")
+    # 项目根目录（public，供 static_vendor 等跨目录资源定位）
+    PROJECT_ROOT: str = _BACKEND_PROJECT_ROOT
+    DOCLING_PDF_BACKEND: str = Field(
+        default="pypdfium2",
+        description=(
+            "PDF 解析后端: pypdfium2（内存高效, 大文件推荐）/ "
+            "docling_parse（表格质量更高, 内存占用大）"
+        ),
+    )
+    DOCLING_USE_GPU: bool = Field(
+        default=True,
+        description=(
+            "docling 的 torch 模型（版面/表格/图片分类）是否使用 CUDA; "
+            "false = 纯 CPU。OCR 走 onnxruntime 恒为 CPU, 不受此开关控制"
+        ),
+    )
+    DOCLING_FORMULA_ENRICHMENT: bool = Field(default=False, description="是否启用公式增强")
+    DOCLING_TABLE_STRUCTURE: bool = Field(default=True, description="是否启用表格结构识别")
+    # 图片分类: 使用 docling_offline/docling/models 内的 DocumentFigureClassifier 模型
+    DOCLING_PICTURE_CLASSIFICATION: bool = Field(default=True, description="是否启用图片分类（离线模型已内置）")
+    # 图片描述: 需要 SmolVLM 模型（约 600MB）, 离线缓存默认未包含;
+    # 如需开启, 先执行: docling-tools models download-hf-repo HuggingFaceTB/SmolVLM-256M-Instruct
+    # 并把下载的 HuggingFaceTB--SmolVLM-256M-Instruct 目录移入 docling_offline/docling/models/
+    DOCLING_PICTURE_DESCRIPTION: bool = Field(default=False, description="是否启用图片描述（需本地 SmolVLM 模型）")
+    CHUNK_OVERLAP_SIZE: int = Field(default=100, description="分块重叠大小，应 ≤ CHUNK_SIZE/2")
+    TABLE_ROW_CHUNKS: bool = Field(
+        default=True,
+        description=(
+            "表格行级分块开关: 开启后为每张非目录表格生成 1 个表级摘要块 + "
+            "逐行块（行数据 + 表名/行号元数据 + 自然语言描述, 纯规则生成不依赖 VLM）, "
+            "与文本块并存嵌入入库"
+        ),
+    )
+    TABLE_ANCHOR_PATTERN: str = Field(
+        default=r"\b[A-Z]{2,6}\s*\d+",
+        description=(
+            "表格命名锚点标题的正则: 表格块命名时向前回溯标题流, 最近命中该模式的标题"
+            "作为'字段定义锚点'（如 'DE 3 (Processing Code)'）前置到表名, 使扁平标题文档"
+            "（全 ## 层级）里的表格块携带 DE 级祖先词汇, 可被 '3域/DE 3' 类查询命中。"
+            "置空字符串禁用锚点回溯。注意: 文档尾部与锚点章节无关的表格（如附录）在窗口内"
+            "可能被误挂祖先锚点, 介意时可调小扫描窗口或禁用"
+        ),
+    )
+    TABLE_ANCHOR_SCAN_WINDOW: int = Field(
+        default=20,
+        ge=1,
+        description="表格命名锚点回溯的最近标题扫描窗口（个）; 窗口内无命中则不前置锚点（仅大纲模式禁用时的回落路径使用）",
+    )
+    TABLE_OUTLINE_LEVELS: List[str] = Field(
+        default=[r"^DE\s*\d+\b", r"^Subelement\s*\d+\b", r"^Subfield\s*\d+\b"],
+        description=(
+            "表格命名语义大纲的层级正则（有序列表, 位置即深度: 默认 DE=章节级, "
+            "Subelement=节级, Subfield=小节级）。标题命中深度 k 时弹栈至深度<k 再压栈, 按角色维护"
+            "逻辑大纲; 表格命名取栈内祖先 + 节内 context 标题 + 表格前导标题"
+            "拼成完整定位路径"
+            "（如 'DE 3 (Processing Code) > Subfield 2 (...) > Cardholder \"From Account\" "
+            "type code'）, 解决扁平标题（全 ##）文档里两槽位命名被中间节顶掉、窗口"
+            "锚点回溯超窗落空的问题。未命中任何层级的非样板标题作节 context "
+            "与表题候选。表格处大纲栈为空时回落两槽位+锚点回溯。空列表禁用大纲模式"
+        ),
+    )
+    TABLE_HEADING_STOPLIST: List[str] = Field(
+        default=["Values", "Attributes", "Usage", "Application notes"],
+        description=(
+            "表格命名大纲的样板标题停用表（忽略大小写精确匹配）: 这些标题在每个"
+            "字段/小节下机械重复、不携带区分信息, 不进入表名祖先链; 但作为表格"
+            "紧邻前导标题时仍可用作表题。仅大纲模式生效"
+        ),
+    )
+    TABLE_OUTLINE_RESET_PATTERN: str = Field(
+        default=r"^(Appendix|Index|Glossary|Table of Contents)\b",
+        description=(
+            "表格命名大纲的重置标题正则: 命中标题时清空大纲栈, 用于附录/索引等与"
+            "正文字段定义无关的尾部章节, 防止其后的表格误挂正文最后一个锚点祖先。"
+            "空字符串禁用重置。仅大纲模式生效"
+        ),
+    )
+    CHUNK_TOP_K: int = Field(default=100, ge=1, description="向量检索(naive 模式)稠密检索返回的分块条数")
+    RRF_TOP_K: int = Field(default=100, ge=1, description="混合检索(hybrid 模式) RRF 融合保留条数, 作为重排候选池")
+    HYBRID_DENSE_TOP_K: int = Field(default=60, description="混合检索每路稠密检索的候选数（未显式传 dense_top_k 时生效）")
+    HYBRID_BM25_TOP_K: int = Field(default=60, description="混合检索每路 BM25 检索的候选数（未显式传 bm25_top_k 时生效）")
+    DOC_BUDGET_MAX_SHARE: float = Field(
+        default=0.6,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "最终检索窗口中单个文档可占的 token 预算比例上限（多文档联合检索保障）: "
+            "多文档分块同时竞争预算时, 防止单一主导文档霸占窗口、挤掉问题涉及的其他文档; "
+            "超限分块被暂时跳过, 剩余预算按相关性回填（单文档查询回填后与旧逻辑完全一致）。"
+            "1.0 = 关闭封顶"
+        ),
+    )
+    BM25_FINGERPRINT_TTL: float = Field(
+        default=30.0,
+        description=(
+            "BM25 索引新鲜度指纹的 Web 侧缓存 TTL（秒）: TTL 内不向向量库"
+            "查询指纹。新入库数据最多延迟 TTL 秒进入 BM25 关键词检索; "
+            "设为 0 则每次查询都核对指纹"
+        ),
+    )
+    DOC_RECALL_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "文档级召回总开关（文档摘要索引 + 定向注入）: 查询与文档摘要余弦"
+            "匹配命中的文档, 定向召回其 top 分块注入重排候选池。摘要层只保证"
+            "涉及文档被认真考虑, 是否进最终窗口仍由重排阈值唯一决定（双闸门）"
+        ),
+    )
+    DOC_RECALL_MIN_SCORE: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="查询向量与文档摘要向量的余弦相似度阈值, 达标文档判定为问题涉及文档（需 A/B 校准）",
+    )
+    DOC_RECALL_CHUNKS_PER_DOC: int = Field(
+        default=8,
+        ge=1,
+        description="每份命中文档定向注入候选池的分块数上限",
+    )
+    DOC_RECALL_MAX_DOCS: int = Field(
+        default=3,
+        ge=1,
+        description="单次查询最多定向注入的文档数（按摘要相似度取 top, 控制增量 RPC 与候选池规模）",
+    )
+    DOC_RECALL_INDEX_TTL: float = Field(
+        default=30.0,
+        description=(
+            "文档摘要索引新鲜度指纹的 Web 侧缓存 TTL（秒）: TTL 内不核对文档表指纹。"
+            "新入库文档最多延迟 TTL 秒进入文档级召回; 设为 0 则每次查询都核对"
+        ),
+    )
+    DOC_SUMMARY_INPUT_MAX_CHARS: int = Field(
+        default=20000,
+        ge=1000,
+        description="生成文档摘要时送入 LLM 的正文最大字符数（头部优先, 尾部补足）",
+    )
+    SUBQUERY_DECOMPOSE_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "子查询分解总开关: 复合问题（跨主题/一问多面）由 LLM 拆为 2-4 个子查询"
+            "分别召回后合并候选池; 单一面问题自动跳过（高频路径零开销）, 分解结果按查询哈希缓存"
+        ),
+    )
+    SUBQUERY_MAX_COUNT: int = Field(
+        default=4,
+        ge=1,
+        le=8,
+        description="子查询分解的最大子查询数（超出截断）",
+    )
+    MAX_TOTAL_TOKENS: int = Field(default=30000, description="上下文 token 总预算上限")
+    PDF_SPLIT_MAX_PAGES: int = Field(
+        default=25,
+        description=(
+            "大文档切分阈值（超过该页数的 PDF 自动切分为子文档后解析）。"
+            "该值同时决定取消粒度——docling 单子文档转换不可打断, 取消在子文档之间的"
+            "检查点生效, 阈值越小取消响应等待越短"
+        ),
+    )
+    MAX_PARALLEL_PARSE_DOCLING: int = Field(default=2, description="子文档解析并行数（每槽位各自拥有独立解析器）")
+    CHAT_HISTORY_MAX_MESSAGES: int = Field(
+        default=20,
+        ge=0,
+        description=(
+            "问答时注入 LLM 的最近历史消息【条数】硬上限（0 = 不注入历史）。"
+            "与 CHAT_HISTORY_MAX_TOKENS 共同约束历史窗口, 取更严的一方"
+        ),
+    )
+    CHAT_HISTORY_MAX_TOKENS: int = Field(
+        default=6000,
+        ge=0,
+        description=(
+            "问答时注入 LLM 的历史窗口【token】预算（0 = 不注入历史）。"
+            "为主约束, 保证历史不挤爆上下文; 条数上限为保险丝。"
+            "历史 token 会计入总预算, 剩余才分给检索分块"
+        ),
+    )
+    CHAT_REWRITE_HISTORY_MESSAGES: int = Field(
+        default=6,
+        ge=0,
+        description=(
+            "历史感知检索改写（指代消解）参考的最近历史消息条数。"
+            "仅多轮时触发, 用最近几轮把当前问题消解为自包含查询再检索"
+        ),
+    )
+    CHAT_SUMMARY_MAX_TOKENS: int = Field(
+        default=500,
+        ge=0,
+        description=(
+            "滚动摘要自身的目标 token 体积（保持精炼）。"
+            "摘要作为背景上下文注入 system, 其 token 计入总预算"
+        ),
+    )
+    CHAT_SUMMARY_BATCH_MESSAGES: int = Field(
+        default=4,
+        ge=1,
+        description=(
+            "被挤出近期窗口、待折叠进滚动摘要的消息达到该条数才触发一次折叠。"
+            "批量摊销摘要 LLM 成本（值越大折叠越少、越省）"
+        ),
+    )
+    TERMINOLOGY_BATCH_CONCURRENCY: int = Field(default=5, description="术语抽取 LLM 批次并发数")
+    TERMINOLOGY_MAX_TOKENS: int = Field(
+        default=16384,
+        description=(
+            "术语抽取单批 LLM 输出 token 上限。偏低会导致输出截断"
+            "（finish_reason=length）——检测到截断后会自动把该批对半重切重试, "
+            "实体编号密集的大文档建议按所用模型的能力上限调高该值"
+        ),
+    )
+    TERMINOLOGY_ENTITY_MAX_ITEMS: int = Field(
+        default=20,
+        ge=1,
+        description=(
+            "术语表保留的编号实体组最大条目数: 合并后条目数超过该值的组判定为"
+            "纯值域枚举（代码值表/响应码表等）, 整组丢弃——取值不是术语, "
+            "不参与查询改写; 少量编号的锚点组（如 DE 1~6）保留"
+        ),
+    )
+
+    # ==================== 向量数据库配置 ====================
+    VECTOR_BACKEND: str = Field(default="milvus", description="向量库后端: milvus（Worker 独占 + RPC 桥接）/ chromadb（两端直连）")
+    MILVUS_URI: str = Field(
+        default=os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, ".milvus.db")),
+        description="Milvus 连接 URI（默认本地 Milvus Lite）"
+    )
+    MILVUS_USER: Optional[str] = Field(default=None, description="Milvus 用户名（可选）")
+    MILVUS_PASSWORD: Optional[str] = Field(default=None, description="Milvus 密码（可选）")
+    MILVUS_TOKEN: Optional[str] = Field(default=None, description="Milvus Token（可选）")
+    VECTOR_RPC_TIMEOUT: float = Field(
+        default=120.0,
+        description=(
+            "Web 端向量库操作经 Celery RPC 委托 Worker 执行的等待超时（秒）: "
+            "需覆盖 Worker 池排队 + 操作本身耗时; 大文档任务占满 Worker "
+            "槽位时 RPC 排队时间变长, 可按部署规模调高"
+        ),
+    )
+    VECTOR_UPSERT_BATCH_SIZE: int = Field(
+        default=500,
+        description=(
+            "向量库 upsert 单批写入条数: 大文档数千分块一次性写入时 payload "
+            "可达数十 MB, 可能触及 gRPC 消息上限导致整篇在最后一步失败; "
+            "分批写入（块 ID 幂等, 失败重试安全）规避该风险"
+        ),
+    )
+    LLM_MODEL: str = Field(default="deepseek-chat", description="默认 LLM 模型")
+    LLM_MAX_TOKENS: int = Field(default=4096, description="LLM 单次最大生成 token 数")
+    LLM_TEMPERATURE: float = Field(default=0.7, description="LLM 默认采样温度")
+
+    # ==================== Embedding 配置 ====================
+    EMBEDDING_BINDING_HOST: str = Field(default="https://api.siliconflow.cn/v1", description="Embedding API Base URL")
+    EMBEDDING_BINDING_API_KEY: str = Field(default="", description="Embedding API Key")
+    EMBEDDING_MODEL: str = Field(default="BAAI/bge-m3", description="默认 Embedding 模型")
+    EMBEDDING_DIM: int = Field(default=1024, description="向量维度（Milvus 建集合使用）")
+    EMBEDDING_BATCH_NUM: int = Field(default=100, description="Embedding 批量请求大小")
+    EMBEDDING_MAX_CONCURRENT: int = Field(
+        default=10,
+        description=(
+            "Embedding API 最大并发请求数。两个约束: ① Windows 的 asyncio "
+            "SelectorEventLoop 底层 select() 有 512 socket 硬上限; "
+            "② 供应商 TPM（tokens/分钟）配额——并发越高单位时间灌入的 "
+            "token 越多, 越容易触发 429 限流。大文档频繁 429 时应继续调小"
+        ),
+    )
+    EMBEDDING_SEND_DIM: bool = Field(default=False, description="请求时是否显式传递维度参数")
+    EMBEDDING_USE_BASE64: bool = Field(default=True, description="是否使用 base64 编码传输向量")
+    EMBEDDING_MAX_CHARS_PER_TEXT: int = Field(
+        default=5000,
+        description=(
+            "嵌入输入单条文本的字符上限, 超限部分截断后再向量化。"
+            "需覆盖最大分块长度（分块口径 CHUNK_SIZE × 每 token 1.3 字符 ≈ 1560 + 缓冲）, "
+            "否则分块尾部内容不参与向量化, 尾部关键词的稠密检索命中率下降"
+        ),
+    )
+
+    # ==================== Rerank 配置 ====================
+    RERANK_BINDING_HOST: str = Field(default="https://api.siliconflow.cn/v1/rerank", description="Rerank API 地址")
+    RERANK_MODEL: str = Field(default="BAAI/bge-reranker-v2-m3", description="Rerank 模型")
+    RERANK_BINDING_API_KEY: str = Field(default="", description="Rerank API Key")
+    RERANK_ENABLE_CHUNKING: bool = Field(default=True, description="长文档是否切块后再重排")
+    RERANK_MAX_TOKENS_PER_DOC: int = Field(default=480, description="重排切块的单块 token 上限")
+    RERANK_TOP_K: int = Field(default=50, ge=1, description="重排后最多返回的分块数（最终检索窗口, 从候选池中精选）")
+    RERANK_MIN_SCORE: float = Field(default=0.0, description="重排最低分数阈值")
+
+    # ==================== VLM 多模态配置 ====================
+    ENABLE_VLM: bool = Field(default=False, description="是否默认启用 VLM 多模态分析")
+    VLM_API_BASE: str = Field(default="http://127.0.0.1:11434/v1", description="VLM API Base URL (OpenAI 兼容)")
+    VLM_MODEL: str = Field(default="gpt-4o", description="VLM 模型")
+    VLM_API_KEY: str = Field(default="not-needed", description="VLM API Key")
     # RAG / LLM / Embedding
     CHROMA_COLLECTION: str = "knowledge_base"
     LLM_API_KEY: str = Field(default="", description="LLM API Key")
-    LLM_BASE_URL: str = Field(default="", description="LLM API Base URL")
-    LLM_MODEL_NAME: str = Field(default="", description="LLM Model Name")
+    LLM_BASE_URL: str = Field(default="https://api.deepseek.com/v1", description="LLM API Base URL")
+    LLM_MODEL_NAME: str = Field(default="deepseek-chat", description="LLM Model Name")
     EMBEDDING_API_KEY: str = Field(default="", description="Embedding API Key")
     EMBEDDING_BASE_URL: str = Field(default="", description="Embedding API Base URL")
     EMBEDDING_MODEL_NAME: str = Field(default="", description="Embedding Model Name")
@@ -344,6 +639,9 @@ class ProjectConfig(BaseSettings):
 
         Path(self.OUTPUT_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.OUTPUT_DATAGRAM_DIR).mkdir(parents=True, exist_ok=True)
+        Path(self.OUTPUT_LOGS_DIR).mkdir(parents=True, exist_ok=True)
+        Path(self.RAG_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+        Path(self.RAG_INPUT_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.CHROMA_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.TEST_CASE_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -441,3 +739,16 @@ def get_project_config() -> ProjectConfig:
 
 
 PROJECT_CONFIG = get_project_config()
+
+# Aerich CLI 入口；与应用启动时 register_database 使用同一套模型和连接配置。
+TORTOISE_ORM = {
+    "connections": PROJECT_CONFIG.DATABASE_CONNECTIONS,
+    "apps": {
+        "models": {
+            "models": PROJECT_CONFIG.APPLICATIONS_MODELS,
+            "default_connection": "default",
+        }
+    },
+    "use_tz": False,
+    "timezone": "Asia/Shanghai",
+}

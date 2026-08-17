@@ -4,6 +4,7 @@ import traceback
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from starlette.exceptions import HTTPException
+from starlette.responses import JSONResponse
 from tortoise.exceptions import DoesNotExist
 
 from core.responses import (
@@ -42,6 +43,15 @@ async def response_validation_exception_handler(request: Request, exc: ResponseV
 
 # 当发生 HTTP 相关的异常时，如 403 禁止访问、404 未找到等，会触发 HTTPException 异常
 async def http_exception_handler(request: Request, exc: HTTPException) -> BaseResponse:
+    # 具体文件类请求（路径末段带扩展名，如 /assets/*.css、/swagger-assets/*.js）
+    # 返回真实 HTTP 状态码：浏览器依赖状态码识别资源缺失，若按接口约定返回
+    # 200+JSON 信封，CSS/JS 会静默加载失败，页面表现为"无样式/白屏"且难以排查
+    if "." in request.url.path.rsplit("/", 1)[-1]:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": str(exc.detail) if hasattr(exc, "detail") else str(exc)},
+        )
+
     if exc.status_code == status.HTTP_401_UNAUTHORIZED:
         return UnauthorizedResponse(message=str(exc.detail) if hasattr(exc, "detail") else str(exc))
 

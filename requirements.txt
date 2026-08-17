@@ -51,7 +51,7 @@ ecdsa==0.19.2
 email-validator==2.3.0
 et_xmlfile==2.0.0
 Faker==40.23.0
-fastapi==0.136.3
+fastapi==0.129.2
 filelock==3.29.3
 filetype==1.2.0
 flatbuffers==25.12.19
@@ -114,6 +114,7 @@ numpy==2.4.6
 oauthlib==3.3.1
 omegaconf==2.3.1
 onnxruntime==1.21.1
+openai==2.48.0
 opencv-python==4.13.0.92
 openpyxl==3.1.5
 opentelemetry-api==1.42.1
@@ -148,6 +149,8 @@ PyJWT==2.13.0
 pylatexenc==2.10
 PyMuPDF==1.27.2.3
 PyMySQL==1.2.0
+pymilvus==3.0.0
+pypdf==5.0.0
 pypdfium2==5.9.0
 PyPika==0.51.1
 pypika-tortoise==0.3.2
@@ -174,7 +177,7 @@ rtree==1.4.1
 safetensors==0.8.0
 scipy==1.17.1
 semchunk==3.2.5
-setuptools==72.1.0
+setuptools==81.0.0
 shapely==2.1.2
 shellingham==1.5.4
 six==1.17.0
@@ -183,7 +186,7 @@ soupsieve==2.8.4
 SQLAlchemy==2.0.50
 sqlmodel==0.0.22
 sse-starlette==3.4.4
-starlette==1.2.1
+starlette==0.52.1
 sympy==1.14.0
 tabulate==0.10.0
 tenacity==9.1.4
@@ -198,7 +201,7 @@ tree-sitter-c==0.24.2
 tree-sitter-javascript==0.25.0
 tree-sitter-python==0.25.0
 tree-sitter-typescript==0.23.2
-typer==0.25.1
+typer==0.21.2
 typing-inspect==0.9.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
@@ -217,3 +220,4 @@ xlsxwriter==3.2.9
 xxhash==3.7.0
 yarl==1.24.2
 zstandard==0.25.0
+milvus-lite==3.1.0

@@ -16,6 +16,7 @@ from applications.ticket_review.lifecycle import start_ticket_review, stop_ticke
 from applications.ticket_review.services.db1_pool import is_db1_pool_initialized
 from applications.ticket_review.services.db2_pool import is_db2_pool_initialized
 from configure import PROJECT_CONFIG, ROUTER_SUMMARY, ROUTER_TAGS
+from configure import LOGGER
 
 from .app_initialization import register_database
 from .data_initialization import init_database_table
@@ -34,6 +35,24 @@ async def start_application_modules(app: FastAPI) -> None:
     await init_database_table(app)
     await start_ticket_review(app)
     await start_code_server_ide(app)
+
+    # RAG 启动巡检与术语索引依赖主库，必须在数据库初始化后执行。
+    # 两项均为可恢复的辅助初始化，失败时降级而不阻断其他已合并模块启动。
+    try:
+        from applications.jiayueyang.services.rag_service import RagDocumentService
+
+        await RagDocumentService().sweep_stale_documents()
+        app.state.jiayueyang_rag_started = True
+    except Exception as exc:
+        app.state.jiayueyang_rag_started = False
+        LOGGER.warning(f"RAG 启动巡检失败，不影响其他模块启动: {exc}")
+
+    try:
+        from applications.jiayueyang.rag.query_rewriter import load_all_indices
+
+        await load_all_indices()
+    except Exception as exc:
+        LOGGER.warning(f"RAG 术语库索引加载失败，将在首次查询时重试: {exc}")
 
 
 async def stop_application_modules(app: FastAPI) -> None:
@@ -70,6 +89,11 @@ def application_health(app: FastAPI) -> dict[str, Any]:
             "code_server_ide": {
                 "started": getattr(app.state, "code_server_ide_started", False),
                 "database": is_ide_database_initialized(),
+            },
+            "jiayueyang_rag": {
+                "registered": True,
+                "started": getattr(app.state, "jiayueyang_rag_started", False),
+                "vectorBackend": PROJECT_CONFIG.VECTOR_BACKEND,
             },
         },
     }

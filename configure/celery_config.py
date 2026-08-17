@@ -85,6 +85,16 @@ class CeleryConfig(BaseSettings):
                     # 默认扫描所有类型的任务，可以通过配置传递特定 task_type
                     # "kwargs": {"task_type": "example"},  # 只扫描 example 类型
                 },
+                "rag-sweep-stale-documents": {
+                    "task": "celery_scheduler.tasks.task_rag_maintenance.sweep_stale_documents_task",
+                    "schedule": 300.0,
+                    "options": {"queue": "default"},
+                },
+                "rag-gc-orphan-chunks": {
+                    "task": "celery_scheduler.tasks.task_rag_maintenance.gc_orphan_chunks_task",
+                    "schedule": 21600.0,
+                    "options": {"queue": "default"},
+                },
             },
             "worker_log_format": (
                 "[%(asctime)s][%(levelname)s] -> [%(name)s][%(filename)s]"
