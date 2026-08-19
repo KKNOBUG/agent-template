@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 SUPPORTED_REVIEW_TABLE_CODES = frozenset({"FW038", "FW039"})
-TARGET_APPROVAL_GROUP = "开发测试审批组"
+TARGET_APPROVAL_GROUP = "上海开发测试审批组"
 
 
 def is_supported_review_table(table_code: Any) -> bool:
