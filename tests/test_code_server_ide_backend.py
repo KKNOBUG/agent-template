@@ -163,6 +163,20 @@ def test_proxy_rewrites_redirect_and_code_server_html(monkeypatch):
     assert proxy_http.await_args.kwargs["path"] == ""
 
 
+def test_websocket_upstream_query_filters_authentication_token():
+    websocket = SimpleNamespace(
+        url=SimpleNamespace(query="reconnectionToken=abc&token=secret&empty=")
+    )
+
+    assert ide_routes.websocket_upstream_query(websocket) == "reconnectionToken=abc&empty="
+
+
+def test_websocket_upstream_query_accepts_empty_query():
+    websocket = SimpleNamespace(url=SimpleNamespace(query=""))
+
+    assert ide_routes.websocket_upstream_query(websocket) == ""
+
+
 def test_all_ide_http_routes_keep_claude_engineering_prefix(monkeypatch):
     client = _client(monkeypatch)
     paths = {

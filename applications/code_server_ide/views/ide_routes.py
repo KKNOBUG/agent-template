@@ -79,9 +79,11 @@ def proxy_authority_from_request(request: Request) -> str | None:
 def websocket_upstream_query(websocket: WebSocket) -> str:
     """Do not forward the application authentication token to code-server."""
     return urlencode(
-        (key, value)
-        for key, value in parse_qsl(websocket.url.query, keep_blank_values=True)
-        if key.lower() != "token"
+        [
+            (key, value)
+            for key, value in parse_qsl(websocket.url.query, keep_blank_values=True)
+            if key.lower() != "token"
+        ]
     )
 
 
