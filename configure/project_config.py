@@ -37,12 +37,18 @@ class ProjectConfig(BaseSettings):
     APP_DESCRIPTION: str = """企业级RAG问答系统"""
     APP_DOCS_URL: str = "/docs"
     APP_REDOC_URL: str = "/redoc"
-    APP_OPENAPI_URL: str = "/openapi_url"
-    APP_OPENAPI_JS_URL: str = "/static/swagger-ui/swagger-ui-bundle.js"
-    APP_OPENAPI_CSS_URL: str = "/static/swagger-ui/swagger-ui.css"
-    APP_OPENAPI_FAVICON_URL: str = "/static/swagger-ui/favicon-32x32.png"
-    APP_OPENAPI_JS_URL_REDOC: str = "/static/redoc/bundles/redoc.standalone.js"
-    APP_OPENAPI_FAVICON_URL_REDOC: str = "/static/redoc/favicon.png"
+    # 前端 ApiPage 与各层反向代理（vite dev / server.js / nginx）均按默认
+    # OpenAPI 地址约定转发, 保持 /openapi.json
+    APP_OPENAPI_URL: str = "/openapi.json"
+    # 离线 Swagger UI / ReDoc 静态资源: 后端将 static_vendor/swagger/ 挂载在
+    # /swagger-assets/ 下（见 app_initialization.register_routers）。不能用
+    # /static/... —— 前端反向代理只转发 /swagger-assets 前缀, /static 会被
+    # SPA 兜底返回 index.html, 导致 /docs 报 "Unexpected token '<'"
+    APP_OPENAPI_JS_URL: str = "/swagger-assets/swagger-ui-bundle.js"
+    APP_OPENAPI_CSS_URL: str = "/swagger-assets/swagger-ui.css"
+    APP_OPENAPI_FAVICON_URL: str = "/swagger-assets/favicon.png"
+    APP_OPENAPI_JS_URL_REDOC: str = "/swagger-assets/redoc.standalone.js"
+    APP_OPENAPI_FAVICON_URL_REDOC: str = "/swagger-assets/favicon.png"
     APP_OPENAPI_VERSION: str = "3.0.2"
 
     # 调试配置

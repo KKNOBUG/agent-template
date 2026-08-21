@@ -27,6 +27,12 @@ from core.middlewares.auth_middleware import auth_middleware
 from core.middlewares.request_context_middleware import request_context_middleware
 from services import DependAuth
 
+# 离线内置的 swagger-ui / redoc 静态资源目录（随项目分发, 无网环境可用;
+# 不放在 web-heroui/dist 内是为了避免被 vite build 的 emptyOutDir 清空）
+SWAGGER_VENDOR_DIR = os.path.join(
+    PROJECT_CONFIG.PROJECT_ROOT, "static_vendor", "swagger"
+)
+
 
 async def register_database(app: FastAPI) -> None:
     config: Dict[str, Any] = {
@@ -156,18 +162,40 @@ def register_middlewares(app: FastAPI):
     # 后做日志追溯链
     app.middleware('http')(request_context_middleware)
 
+    # 离线 vendor 资源强制再验证: StaticFiles 不带 Cache-Control, 浏览器按启发式
+    # 缓存长期使用旧副本——vendor 更新后客户端仍加载旧文件（表现为"改过还报旧错"）。
+    # no-cache 每次再验证, ETag 未变即 304, 开销可忽略, 保证 vendor 更新即时生效。
+    @app.middleware("http")
+    async def swagger_assets_no_cache(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/swagger-assets/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
 
 def register_routers(app: FastAPI) -> None:
     # 挂载静态文件
     app.mount("/static", StaticFiles(directory=PROJECT_CONFIG.STATIC_DIR), name="static")
+    # 离线接口文档静态资源（Swagger UI / ReDoc 本地 vendor, 无网环境可用）。
+    # 必须挂在 /swagger-assets 下: 前端各层反向代理（vite dev / server.js /
+    # nginx）只转发该前缀到后端, /static 会被前端 SPA 兜底返回 index.html,
+    # 使 /docs 报 "Unexpected token '<'"（详见 static_vendor/swagger/README.md）。
+    if os.path.isdir(SWAGGER_VENDOR_DIR):
+        app.mount(
+            "/swagger-assets",
+            StaticFiles(directory=SWAGGER_VENDOR_DIR),
+            name="swagger-assets",
+        )
+    else:
+        LOGGER.warning(f"离线文档资源目录不存在, 接口文档静态资源不可用: {SWAGGER_VENDOR_DIR}")
     app.openapi_version = PROJECT_CONFIG.APP_OPENAPI_VERSION
     swagger_modules = sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__
     swagger_modules["swagger_js_url"] = PROJECT_CONFIG.APP_OPENAPI_JS_URL
     swagger_modules["swagger_css_url"] = PROJECT_CONFIG.APP_OPENAPI_CSS_URL
     swagger_modules["swagger_favicon_url"] = PROJECT_CONFIG.APP_OPENAPI_FAVICON_URL
     redoc_modules = sys.modules["fastapi.openapi.docs"].get_redoc_html.__kwdefaults__
-    redoc_modules["redoc_js_url"] = "/static/redoc/bundles/redoc.standalone.js"
-    redoc_modules["redoc_favicon_url"] = "/static/redoc/favicon.png"
+    redoc_modules["redoc_js_url"] = PROJECT_CONFIG.APP_OPENAPI_JS_URL_REDOC
+    redoc_modules["redoc_favicon_url"] = PROJECT_CONFIG.APP_OPENAPI_FAVICON_URL_REDOC
 
     # 导入路由蓝图
     from applications.base.views import base_public, base_secure, router_secure, audit_secure

@@ -83,6 +83,8 @@ async def auth_middleware(request: Request, call_next):
 
         # static assets
         "* /static/*",
+        # 离线接口文档静态资源（Swagger UI / ReDoc vendor）
+        "* /swagger-assets/*",
 
         "POST /case-recommendation/*",
         # jiayueyang RAG 模块合入前未启用用户体系，保留其公开 API 契约。
