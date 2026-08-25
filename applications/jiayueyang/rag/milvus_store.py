@@ -80,6 +80,16 @@ _patch_milvus_lite_windows_rename()
 # ---------------------------------------------------------------------------
 _COLLECTION_NAME = "rag_chunks"
 
+
+def is_remote_milvus_uri(uri: str | None = None) -> bool:
+    """判断是否连接独立的 Milvus Server。
+
+    HTTP(S) URI 表示客户端通过网络访问 Milvus Server；本地文件路径
+    表示 Milvus Lite，只允许由 Worker 独占访问。
+    """
+    value = str(uri if uri is not None else PROJECT_CONFIG.MILVUS_URI).strip().lower()
+    return value.startswith(("http://", "https://"))
+
 # Milvus Lite 单进程锁冲突的退避重试参数
 _LOCK_RETRY_TIMES = 5
 _LOCK_RETRY_INTERVAL = 1.0

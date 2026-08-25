@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import logging
+import threading
 import traceback
 from abc import ABC
 from datetime import datetime
@@ -28,6 +29,7 @@ from .celery_base import (
 )
 
 _async_event_loop_pool = None
+_async_event_loop_pool_lock = threading.Lock()
 
 _SCAN_TASK_NAME = "celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks"
 
@@ -62,7 +64,11 @@ def _reset_async_pool_and_tortoise_after_fork(**kwargs):
 def get_async_event_loop_pool():
     global _async_event_loop_pool
     if _async_event_loop_pool is None:
-        _async_event_loop_pool = AsyncEventLoopContextIOPool()
+        # threads 池中的多个 Celery 线程可能同时首次取任务；
+        # 只允许一个线程初始化常驻事件循环，避免其他线程拿到未初始化完成的对象。
+        with _async_event_loop_pool_lock:
+            if _async_event_loop_pool is None:
+                _async_event_loop_pool = AsyncEventLoopContextIOPool()
     return _async_event_loop_pool
 
 
