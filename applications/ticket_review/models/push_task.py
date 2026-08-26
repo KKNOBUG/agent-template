@@ -11,6 +11,11 @@ import aiomysql
 from applications.ticket_review.services.db2_pool import get_db2_connection
 
 
+PUSH_TICKET_REVIEW_CELERY_TASK = (
+    "celery_scheduler.tasks.task_ticket_review.process_push_ticket_review_task"
+)
+
+
 @dataclass
 class PushTaskRecord:
     request_id: str
@@ -89,6 +94,77 @@ class PushTaskRecord:
         if created is None:
             raise RuntimeError("push_tasks insert succeeded but the task cannot be reloaded")
         return created, True
+
+    def enqueue(self) -> str | None:
+        """Submit this pending record to Celery and return the Celery task id."""
+        if self.status != "PENDING":
+            return None
+
+        from celery_scheduler.celery_worker import celery
+
+        result = celery.send_task(
+            PUSH_TICKET_REVIEW_CELERY_TASK,
+            kwargs={"request_id": self.request_id},
+        )
+        return result.id
+
+    @classmethod
+    async def claim_by_request_id(
+        cls,
+        request_id: str,
+        *,
+        lease_token: str,
+    ) -> "PushTaskRecord | None":
+        """Atomically claim one specific task delivered by Celery."""
+        if not lease_token:
+            raise ValueError("lease_token is required")
+
+        async with get_db2_connection() as connection:
+            try:
+                await connection.begin()
+                async with connection.cursor(aiomysql.DictCursor) as cursor:
+                    await cursor.execute(
+                        """
+                        SELECT * FROM push_tasks
+                        WHERE request_id = %s
+                        LIMIT 1 FOR UPDATE
+                        """,
+                        (request_id,),
+                    )
+                    row = await cursor.fetchone()
+                    if not row or str(row["status"]) != "PENDING":
+                        await connection.commit()
+                        return None
+
+                    await cursor.execute(
+                        """
+                        UPDATE push_tasks
+                        SET status = 'PROCESSING',
+                            lease_token = %s,
+                            heartbeat_at = NOW(6),
+                            started_at = COALESCE(started_at, NOW(6)),
+                            error_message = NULL,
+                            updated_at = NOW(6)
+                        WHERE request_id = %s AND status = 'PENDING'
+                        """,
+                        (lease_token, request_id),
+                    )
+                    if cursor.rowcount != 1:
+                        await connection.rollback()
+                        return None
+
+                    now = datetime.now()
+                    row["status"] = "PROCESSING"
+                    row["lease_token"] = lease_token
+                    row["heartbeat_at"] = now
+                    row["started_at"] = row.get("started_at") or now
+                await connection.commit()
+            except Exception:
+                await connection.rollback()
+                raise
+
+        return cls._from_row(row)
+
     @classmethod
     async def claim_next(cls) -> "PushTaskRecord | None":
         lease_token = uuid.uuid4().hex

@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS `rag_document` (
     `job_id` VARCHAR(64) NOT NULL UNIQUE COMMENT '任务ID(doc-<md5前16位>)',
     `filename` VARCHAR(255) NOT NULL UNIQUE COMMENT '文件名',
     `status` VARCHAR(32) NOT NULL  COMMENT '处理状态: queued/splitting/parsing/terminology/analyzing/chunking/embedding/complete/failed' DEFAULT 'queued',
-    `abstract` LONGTEXT NOT NULL  COMMENT '文档摘要(失败时存错误描述, 取消时为\'用户取消\')',
+    `abstract` LONGTEXT NOT NULL  COMMENT '文档摘要(失败时存错误描述, 取消时为用户取消)',
     `input_path` VARCHAR(512)   COMMENT '源文件留档路径(input/<job_id>/)',
     `output_path` VARCHAR(512)   COMMENT '产物目录(output/rag_upload/<job_id>/)',
     `artifacts_file` VARCHAR(512)   COMMENT 'docling artifacts 目录路径',
